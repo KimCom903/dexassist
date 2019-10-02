@@ -418,3 +418,105 @@ class Instruction20bc(Instruction):
 class Instruction22x(Instruction):
   def as_byte_stream(self):
     return self.get_a() + self.op_as_byte() + self.get_b()
+
+# AA|op BBBB    21t	    op vAA, +BBBB
+class Instruction21t(Instruction22x):
+
+# AA|op BBBB    21s	    op vAA, #+BBBB    
+class Instruction21s(Instruction22x):
+
+# AA|op BBBB    21h	    op vAA, #+BBBB0000
+#                  	    op vAA, #+BBBB000000000000
+class Instruction21h(Instruction22x):
+
+# AA|op BBBB    21c	    op vAA, type@BBBB
+#                               field@BBBB
+#                               method_handle@BBBB
+#                               proto@BBBB
+#                               string@BBBB
+class Instruction21c(Instruction22x):
+    
+# AA|op CC|BB	23x	    op vAA, vBB, vCC
+class instruction23x(Instruction):
+    def as_byte_stream(self):
+        pass
+
+# AA|op CC|BB   22b     op vAA, vBB, #+CC
+class instruction22b(Instruction23x):
+
+# B|A|op CCCC	22t	    op vA, vB, +CCCC    
+class instruction22t(Instruction):
+    
+# B|A|op CCCC   22s     op vA, vB, #+CCCC
+class instruction22s(Instruction22t):
+    
+# B|A|op CCCC   22c     op vA, vB, (type/field)@CCCC
+class instruction22c(Instruction22t):
+
+# B|A|op CCCC   22cs    op vA, vB, fieldoff@CCCC
+class instruction22cs(Instruction22t):
+
+# ØØ|op AAAAlo AAAAhi	30t	    op +AAAAAAAA
+class instruction30t(Instruction):
+    
+# ØØ|op AAAA BBBB	32x	    op vAAAA, vBBBB
+class instruction32x(Instruction):
+    
+# AA|op BBBBlo BBBBhi	31i	    op vAA, #+BBBBBBBB    
+class instruction31i(Instruction):
+    
+# AA|op BBBBlo BBBBhi   31t	op vAA, +BBBBBBBB
+class instruction31t(Instruction31i):
+    
+# AA|op BBBBlo BBBBhi   31c	op vAA, string@BBBBBBBB
+class instruction31c(Instruction31i):
+    
+# A|G|op BBBB F|E|D|C	35c	    [A=5] op {vC, vD, vE, vF, vG}, meth@BBBB
+#                               [A=5] op {vC, vD, vE, vF, vG}, site@BBBB
+#                               [A=5] op {vC, vD, vE, vF, vG}, type@BBBB
+#                               [A=4] op {vC, vD, vE, vF}, kind@BBBB
+#                               [A=3] op {vC, vD, vE}, kind@BBBB
+#                               [A=2] op {vC, vD}, kind@BBBB
+#                               [A=1] op {vC}, kind@BBBB
+#                               [A=0] op {}, kind@BBBB
+class instruction35c(Instruction):
+    
+# A|G|op BBBB F|E|D|C      35ms	    [A=5] op {vC, vD, vE, vF, vG}, vtaboff@BBBB
+#                                   [A=4] op {vC, vD, vE, vF}, vtaboff@BBBB
+#                                   [A=3] op {vC, vD, vE}, vtaboff@BBBB
+#                                   [A=2] op {vC, vD}, vtaboff@BBBB
+#                                   [A=1] op {vC}, vtaboff@BBBB
+class instruction35ms(Instruction35c):
+    
+# A|G|op BBBB F|E|D|C      35mi     [A=5] op {vC, vD, vE, vF, vG}, inline@BBBB
+#                                   [A=4] op {vC, vD, vE, vF}, inline@BBBB
+#                                   [A=3] op {vC, vD, vE}, inline@BBBB
+#                                   [A=2] op {vC, vD}, inline@BBBB
+#                                   [A=1] op {vC}, inline@BBBB
+class instruction35mi(Instruction35c):
+    
+# AA|op BBBB CCCC	3rc	    op {vCCCC .. vNNNN}, meth@BBBB
+#                           op {vCCCC .. vNNNN}, site@BBBB
+#                           op {vCCCC .. vNNNN}, type@BBBB
+class instruction3rc(Instruction):
+    
+# AA|op BBBB CCCC	3rms    op {vCCCC .. vNNNN}, vtaboff@BBBB
+class instruction3rms(Instruction3rc):
+    
+# AA|op BBBB CCCC	3rmi    op {vCCCC .. vNNNN}, inline@BBBB  
+class instruction3rmi(Instruction3rc):    
+    
+# A|G|op BBBB F|E|D|C HHHH	    45cc	[A=5] op {vC, vD, vE, vF, vG}, meth@BBBB, proto@HHHH
+#                                       [A=4] op {vC, vD, vE, vF}, meth@BBBB, proto@HHHH
+#                                       [A=3] op {vC, vD, vE}, meth@BBBB, proto@HHHH
+#                                       [A=2] op {vC, vD}, meth@BBBB, proto@HHHH
+#                                       [A=1] op {vC}, meth@BBBB, proto@HHHH  
+class instruction45cc(Instruction):    
+    
+# AA|op BBBB CCCC HHHH	4rcc	op> {vCCCC .. vNNNN}, meth@BBBB, proto@HHHH   
+class instruction4rcc(Instruction):   
+    
+# AA|op BBBBlo BBBB BBBB BBBBhi	51l	op vAA, #+BBBBBBBBBBBBBBBB
+class instruction51l(Instruction):         
+
+    
