@@ -471,7 +471,10 @@ class ClassDefItem(DexItem):
     self.static_values = None
     if self.static_values_off:
       self.static_values = EncodedArrayItem(self.manager, self.root_stream, self.static_values_off)
-
+    self.interfaces = []
+    if self.interfaces_off:
+      tl = TypeList(self.manager, self.root_stream, self.interfaces_off)
+      self.interfaces = [x.type_idx for x in tl.list]
 
 class ClassDataItem(DexItem):
   descriptor = {
@@ -513,10 +516,14 @@ class EncodedField(DexItem):
 
 class EncodedMethod(DexItem):
   descriptor = {
-    'method_idx_dif': ULEB,
+    'method_idx_diff': ULEB,
     'access_flags': ULEB,
     'code_off': ULEB
   }
+  def parse_remain(self):
+    self.code = None
+    if self.code_off:
+      self.code = CodeItem(self.manager, self.root_stream, self.code_off)
 
 class TypeList(DexItem):
   descriptor = {

@@ -1,21 +1,33 @@
 
+class Dex(object):
+  def __init__(self):
+    self.classes = []
 
+  def add_class(self, clazz):
+    self.classes.append(clazz)
 
-class DexClassItem(self):
+class DexClassItem(object):
   def __init__(self):
     self.annotations = []
     self.methods = []
+    # direct_methods = any of static, private, or constructor
+    # virtual_methods = none of static, private, or constructor
     self.fields = []
+    self.type = None
+    self.name = None
+    self.access_flag = 0
+    self.superclass = None
+    self.source_file_name = None
+    self.interfaces = []
 
-
-class DexFieldItem(self):
+class DexFieldItem(object):
   def __init__(self):
     self.annotations = []
     self.type = ''
     self.value = ''
 
 
-class DexMethodItem(self):
+class DexMethodItem(object):
   def __init__(self):
     self.annotations = []
     self.type = ''
@@ -23,12 +35,12 @@ class DexMethodItem(self):
     self.codes = None
 
 
-class DexCodeItem(self):
+class DexCodeItem(object):
   def __init__(self):
     self.editor = None
 
 
-class DexCodeEditor(self):
+class DexCodeEditor(object):
   def __init__(self):
     self.bytecodes = []
   
