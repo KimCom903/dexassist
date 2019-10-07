@@ -20,19 +20,30 @@ class DexClassItem(object):
     self.source_file_name = None
     self.interfaces = []
 
-class DexFieldItem(object):
-  def __init__(self):
+  def add_annotation(self, annotation):
+    self.annotations.append(annotation)
+class DexField(object):
+  def __init__(self, parent, type_name, access_flags):
     self.annotations = []
-    self.type = ''
-    self.value = ''
+    self.type = type_name
+    self.clazz = parent
+    self.access_flags = access_flags
 
 
-class DexMethodItem(object):
+
+def create_dex_method(self, parent, method_name, access_flags, signature, code):
+  pass
+
+class DexMethod(object):
   def __init__(self):
     self.annotations = []
     self.type = ''
     self.return_type = ''
     self.codes = None
+
+class DexAnnotation(object):
+  def __init__(self, target, visibility, type_name, key_name_tuples):
+    pass
 
 
 class DexCodeItem(object):

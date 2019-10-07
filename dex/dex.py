@@ -644,6 +644,10 @@ class AnnotationsDirectoryItem(DexItem):
     self.field_annotations = []
     self.method_annotations = []
     self.parameter_annotations = []
+    self.class_item = None
+    if self.class_annotations_off:
+      self.class_item = AnnotationSetItem(self.manager, self.root_stream, self.class_annotations_off)
+
     for x in range(self.fields_size):
       item = FieldAnnotation(self.manager, self.root_stream, self.base_index + self.read_size)
       self.field_annotations.append(item)
@@ -662,12 +666,16 @@ class FieldAnnotation(DexItem):
     'field_idx': UINT,
     'annotations_off': UINT
   }
+  def parse_remain(self):
+    self.annotation = AnnotationSetItem(self.manager, self.root_sream, self.annotations_off)
 
 class MethodAnnotation(DexItem):
   descriptor = {
     'method_idx': UINT,
     'annotations_off': UINT
   }
+  def parse_remain(self):
+    self.annotation = AnnotationSetItem(self.manager, self.root_sream, self.annotations_off)
 
 
 class ParameterAnnotation(DexItem):
@@ -675,6 +683,8 @@ class ParameterAnnotation(DexItem):
     'method_idx': UINT,
     'annotations_off': UINT
   }
+  def parse_remain(self):
+    self.annotation_ref = AnnotationSetRefList(self.manager, self.root_stream, self.annotations_off)
 
 class AnnotationSetRefList(DexItem):
   descriptor = {
@@ -692,6 +702,10 @@ class AnnotationSetRefItem(DexItem):
   descriptor = {
     'annotations_off': UINT
   }
+  def parse_remain(self):
+    self.annotation = None
+    if self.annotations_off:
+      self.annotation = AnnotationSetItem(self.manager, self.root_stream, self.annotations_off)
 
 class AnnotationSetItem(DexItem):
   descriptor = {
@@ -710,6 +724,9 @@ class AnnotationOffItem(DexItem):
   descriptor = {
     'annotation_off': UINT
   }
+
+  def parse_remain(self):
+    self.annotation = AnnotationItem(self.manager, self.root_stream, self.annotation_off)
 
 class AnnotationItem(DexItem):
   descriptor = {
