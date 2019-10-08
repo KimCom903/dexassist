@@ -1,15 +1,25 @@
 import normalize
-
+from dex import dex
 class DexConverter(object):
   def get_dex(self, header, manager):
     dex = normalize.Dex()
     for x in manager.class_def_list:
       dex.add_class(self.create_dex_class(x, manager))
     return dex
+  def translate_encoded_value(self, manager, encoded_value):
+    if encoded_value.type == dex.ENCODED_VALUE_ARRAY:
+      pass
+    if encoded_value.type == dex.ENCODED_VALUE_STRING:
+      pass
+    if encoded_value.type == dex.ENCODED_VALUE_METHOD:
+      pass
+
+    return translate_encoded_value(encoded_value)
+
   def extract_from_annotation_set_item(self, parent, manager, annotation_set_item):
     ret = []
     for entry in annotation_set_item.entries:
-      annotation_item = entry.annotation_off_item.annotation
+      annotation_item = entry.annotation
       visibility = annotation_item.visibility
       type_idx = annotation_item.annotation.type_idx
       elements = []
@@ -17,12 +27,14 @@ class DexConverter(object):
       for x in range(annotation_item.annotation.size):
         name_idx = annotation_item.annotation.elements[x].name_idx
         value = annotation_item.annotation.elements[x].value
+
         elements.append((manager.string_list[name_idx],
-            value.value
+            self.translate_encoded_value(manager, value)
         ))
-    ret.append(
-      normalize.DexAnnotation(parent, visibility, type_name, elements)
-    )
+      ret.append(
+        normalize.DexAnnotation(parent, visibility, type_name, elements)
+      )
+    return ret
 
   #cdi : class_def_item
   def create_dex_class(self, cdi, manager):
@@ -31,8 +43,10 @@ class DexConverter(object):
     item.access_flags = cdi.access_flags
     item.superclass = manager.type_list[cdi.superclass_idx]
     item.interfaces = [manager.type_list[x] for x in cdi.interfaces]
+    item.name = item.type
+
     if cdi.source_file_idx:
-      item.source_file_name = cdi.string_list[cdi.source_file_idx]
+      item.source_file_name = manager.string_list[cdi.source_file_idx]
     if cdi.static_values:
       item.static_values = [x.value for x in cdi.static_values.value.values]
     field_annotation_table = {}
@@ -60,16 +74,21 @@ class DexConverter(object):
     for f in cdi.data.static_fields:
       field_idx += f.field_idx_diff
       access_flags = f.access_flags
-      field_name = manager.string_list[field_idx]
-      f = self.create_dex_field(item, field_name, access_flags)
+      field = manager.field_list[field_idx]
+      field_name = manager.string_list[field.name_idx]
+      type_name = manager.type_list[field.type_idx]
+
+      f = self.create_dex_field(item, field_name, type_name, access_flags)
       f.annotations = field_annotation_table.get(field_idx, [])
       item.fields.append(f)
     field_idx = 0
     for f in cdi.data.instance_fields:
       field_idx += f.field_idx_diff
       access_flags = f.access_flags
-      field_name = manager.string_list[field_idx]
-      f = self.create_dex_field(item, field_name, access_flags)
+      field = manager.field_list[field_idx]
+      field_name = manager.string_list[field.name_idx]
+      type_name = manager.type_list[field.type_idx]
+      f = self.create_dex_field(item, field_name, type_name, access_flags)
       f.annotations = field_annotation_table.get(field_idx, [])
       item.fields.append(f)
 
@@ -82,11 +101,19 @@ class DexConverter(object):
       name_idx = method_item.name_idx
 
       method_name = manager.string_list[name_idx]
-      proto = manager.string_list[proto_idx]
       access_flags = m.access_flags
       code = m.code
-      method_signature_idx = proto.shorty_idx
-      method_signature = manager.string_list[method_signature_idx]
+      proto = manager.proto_list[proto_idx]
+      return_type_idx = proto.return_type_idx
+      parameter = []
+      if proto.type_list:
+        for type_item in proto.type_list.list:
+          parameter_type_idx = type_item.type_idx
+          type_info = manager.type_list[parameter_type_idx]
+          parameter.append(type_info)
+      
+      method_signature = '{}({})'.format(manager.type_list[return_type_idx], ''.join(parameter))
+
       x = self.create_dex_method(item, method_name, access_flags, method_signature, code)
       x.annotations = method_annotation_table.get(method_idx, [])
       x.param_annotations = param_annotation_table.get(method_idx, [])
@@ -101,24 +128,43 @@ class DexConverter(object):
       name_idx = method_item.name_idx
 
       method_name = manager.string_list[name_idx]
-      proto = manager.string_list[proto_idx]
       access_flags = m.access_flags
       code = m.code
-      method_signature_idx = manager.proto_list[m.proto_idx].shorty_idx
-      method_signature = manager.string_list[method_signature_idx]
+      
+      proto = manager.proto_list[proto_idx]
+      return_type_idx = proto.return_type_idx
+      parameter = []
+      if proto.type_list:
+        for type_item in proto.type_list.list:
+          parameter_type_idx = type_item.type_idx
+          type_info = manager.type_list[parameter_type_idx]
+          parameter.append(type_info)
+      
+      method_signature = '{}({})'.format(manager.type_list[return_type_idx], ''.join(parameter))
       x = self.create_dex_method(item, method_name, access_flags, method_signature, code)
       x.annotations = method_annotation_table.get(method_idx, [])
       x.param_annotations = param_annotation_table.get(method_idx, [])
-      item.methods.append(x)    
+      item.methods.append(x)
 
 
     return item
-    
+
+
   #ef : encodedfield
-  def create_dex_field(self, parent, type_name, access_flags):
-    f = normalize.DexField(parent, type_name, access_flags)
+  def create_dex_field(self, parent, field_name, type_name, access_flags):
+    f = normalize.DexField(parent, field_name, type_name, access_flags)
     return f
 
   def create_dex_method(self, parent, method_name, access_flags, signature, code):
-    pass
+    editor = None
+    m = normalize.DexMethod(parent, method_name, access_flags, signature, editor)
+    return m
 
+
+def translate_encoded_value(encoded_value):
+  print('translate value : {} -> {}'.format(encoded_value, encoded_value.value))
+  return encoded_value.value
+
+def translate_encoded_array(encoded_array):
+  print(encoded_array)
+  return [x.value for x in encoded_array.values]

@@ -10,8 +10,17 @@ class Editor(object):
   def get_opcode_list(self):
     pass
 
-  def is_in_try(self, code):
+  def is_in_try(self, opcode):
     pass
 
   def get_opcode_offset(self, opcode):
+    pass
+
+  def update_string_offset(self):
+    pass
+
+  def update_method_offset(self):
+    pass
+
+  def update_field_offset(self):
     pass

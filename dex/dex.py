@@ -210,7 +210,6 @@ class StreamReader(object):
     ret = self.__read(index, 8, *args)
     return ret
 
-
   def read_signature(self, index, *args):
     ret = self.__read(index, 20, *args)
     return ret
@@ -249,7 +248,7 @@ class StreamReader(object):
     shift = 0
     size = 0
     while True:
-      b = ord(self.read_ubyte(index + size))
+      b = self.read_ubyte(index + size).value
       size += 1
       result |= ((b & 0x7f) << shift)
       shift += 7
@@ -391,7 +390,8 @@ class EncodedValue(DexItem):
       for i in range(self.value_size):
         self.value.append(self.root_stream.read_ubyte(self.base_index + self.read_size).value)
         self.read_size += 1
-
+  def __str__(self):
+    return 'type : 0x{:08x} value : {}'.format(self.type, self.value)
 
 
 
@@ -408,6 +408,10 @@ class EncodedArray(DexItem):
       self.values.append(item)
       self.read_size += item.read_size
 
+  def __str__(self):
+    return ', '.join([str(x) for x in self.values])
+
+
 class EncodedAnnotation(DexItem):
   descriptor = {
     'type_idx': ULEB,
@@ -416,27 +420,31 @@ class EncodedAnnotation(DexItem):
 
   def parse_remain(self):
     self.elements = []
-    for x in self.size:
-      item = self.root_stream.read_annotation_element(self.base_index + self.read_size)
+    for x in range(self.size):
+      item = AnnotationElement(self.manager, self.root_stream, self.base_index + self.read_size)
       self.elements.append(item)
-      self.read_size += item.size
+      self.read_size += item.read_size
 
 
 class AnnotationElement(DexItem):
   descriptor = {
     'name_idx': ULEB,
-    'value': ENCODED_VALUE
+    #'value': ENCODED_VALUE
   }
+  def parse_remain(self):
+    self.value = EncodedValue(self.manager, self.root_stream, self.base_index + self.read_size)
+    self.read_size += self.value.read_size
+
 class ProtoIdItem(DexItem):
   descriptor = {
     'shorty_idx': UINT,
     'return_type_idx': UINT,
     'parameters_off': UINT
   }
-  def get_parameters(self):
-    if self.parameters_off == 0: return None
-    if self.type_list is None:
-      self.type_list = None
+  def parse_remain(self):
+    self.type_list = None
+    if self.parameters_off:
+      self.type_list = TypeList(self.manager, self.root_stream, self.parameters_off)
 
 
 class FieldIdItem(DexItem):
@@ -667,7 +675,7 @@ class FieldAnnotation(DexItem):
     'annotations_off': UINT
   }
   def parse_remain(self):
-    self.annotation = AnnotationSetItem(self.manager, self.root_sream, self.annotations_off)
+    self.annotation = AnnotationSetItem(self.manager, self.root_stream, self.annotations_off)
 
 class MethodAnnotation(DexItem):
   descriptor = {
@@ -675,7 +683,7 @@ class MethodAnnotation(DexItem):
     'annotations_off': UINT
   }
   def parse_remain(self):
-    self.annotation = AnnotationSetItem(self.manager, self.root_sream, self.annotations_off)
+    self.annotation = AnnotationSetItem(self.manager, self.root_stream, self.annotations_off)
 
 
 class ParameterAnnotation(DexItem):
@@ -896,10 +904,10 @@ class MapItem(DexItem):
       self.type_list = []
       for x in range(self.size):
         item = TypeIdItem(self.manager, self.root_stream, index)
-        print("get type index {}".format(item.descriptor_idx))
+        #print("get type index {}".format(item.descriptor_idx))
         self.type_list.append(self.manager.get_string(item.descriptor_idx))
         index += item.read_size
-      print(self.type_list)
+
     elif self.type == TYPE_PROTO_ID_ITEM:
       pass
     elif self.type == TYPE_FIELD_ID_ITEM:
@@ -960,19 +968,3 @@ class StringDataItem(DexItem):
     self.value = root_stream.read_string(index + self.read_size)
 
 
-
-def main():
-  with open('classes.dex', 'rb') as f:
-    x = f.read()
-  manager = DexManager()
-  stream = StreamReader(x, manager)
-  header = HeaderItem(manager, stream, 0)
-  print(header)
-  print(hex(header.read_size))
-  print(header.magic)
-  print('map list : {}'.format(header.map_list))
-
-  for x in manager.class_def_list:
-    print(x.data)
-if __name__ == '__main__':
-  main()
