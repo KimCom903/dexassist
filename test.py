@@ -15,8 +15,8 @@ def print_dex(dex_path):
       print(m)
 
 def main():
-  print_dex('test_binary/classes.dex')
-  #print_dex('test_binary/large.dex')
+  #print_dex('test_binary/classes.dex')
+  print_dex('test_binary/large.dex')
 
 
 if __name__ == '__main__':

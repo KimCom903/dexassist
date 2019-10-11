@@ -462,7 +462,7 @@ class EncodedValue(DexItem):
 
   def as_int(self, value):
     if self.type == ENCODED_VALUE_LONG:
-      return struct.unpack('L', value)[0]
+      return struct.unpack('Q', value)[0]
     return struct.unpack('I', value[:4])[0]
 
 
@@ -486,7 +486,7 @@ class EncodedArray(DexItem):
       self.read_size += item.read_size
 
   def __str__(self):
-    return ', '.join([str(x) for x in self.values])
+    return '[' + '], ['.join([str(x.value) for x in self.values]) + ']'
 
 
 class EncodedAnnotation(DexItem):
@@ -549,8 +549,10 @@ class ClassDefItem(DexItem):
     'static_values_off': UINT
   }
   def parse_remain(self):
-    print('parse class_idx {}'.format(self.class_idx))
-    self.data = ClassDataItem(self.manager, self.root_stream, self.class_data_off)
+    print('** parse class_idx {}'.format(self.manager.type_list[self.class_idx]))
+    self.data = None
+    if self.class_data_off:
+      self.data = ClassDataItem(self.manager, self.root_stream, self.class_data_off)
     self.annotations = None
     if self.annotations_off:
       self.annotations = AnnotationsDirectoryItem(self.manager, self.root_stream, self.annotations_off)
@@ -561,6 +563,8 @@ class ClassDefItem(DexItem):
     if self.interfaces_off:
       tl = TypeList(self.manager, self.root_stream, self.interfaces_off)
       self.interfaces = [x.type_idx for x in tl.list]
+  def __str__(self):
+    return 'Class@' + self.manager.type_list[self.class_idx]
 
 class ClassDataItem(DexItem):
   descriptor = {
@@ -608,8 +612,6 @@ class EncodedMethod(DexItem):
   }
   def parse_remain(self):
     self.code = None
-    print(str(self))
-    print('base_index : {}, read_size : {}'.format(self.base_index, self.read_size))
     if self.code_off:
       self.code = CodeItem(self.manager, self.root_stream, self.code_off)
 
@@ -646,7 +648,6 @@ class CodeItem(DexItem):
     self.tries = []
     self.handlers = None
     
-    print('insns_size : {} base_index : {} read_size : {}'.format(self.insns_size, self.base_index, self.read_size))
     for x in range(self.insns_size):
       item = self.root_stream.read_ushort(self.base_index + self.read_size)
       self.insns.append(item.value)
@@ -884,10 +885,8 @@ class HeaderItem(DexItem):
 
   def __init__(self, manager, root_stream, index):
     super(HeaderItem, self).__init__(manager, root_stream, index)
-    print(self)
 
     index = self.string_ids_off
-    print('string index : {}'.format(index))
     self.manager.string_list = []
     for x in range(self.string_ids_size):
       item = StringIdItem(self.manager, self.root_stream, index)

@@ -46,7 +46,12 @@ class DexConverter(object):
     item.name = item.type
 
     if cdi.source_file_idx:
-      item.source_file_name = manager.string_list[cdi.source_file_idx]
+      try:
+        item.source_file_name = manager.string_list[cdi.source_file_idx]
+      except:
+        import traceback
+        print("source file idx {} is not in string_list".format(cdi.source_file_idx))
+
     if cdi.static_values:
       item.static_values = [x.value for x in cdi.static_values.value.values]
     field_annotation_table = {}
@@ -66,11 +71,14 @@ class DexConverter(object):
         for refitem in param_annotation.annotation_ref.list:
           annotation = refitem.annotation
           if annotation:
-            annotation = self.extract_from_annotation_set_item(manager.method_list[param_annotation.method_idx], manager, method_annotation.annotation)
+            annotation = self.extract_from_annotation_set_item(manager.method_list[param_annotation.method_idx], manager, annotation)
           param_annotation_table[param_annotation.method_idx].append(annotation)
 
 
     field_idx = 0
+    if cdi.data is None:
+      return item
+
     for f in cdi.data.static_fields:
       field_idx += f.field_idx_diff
       access_flags = f.access_flags
@@ -161,13 +169,18 @@ class DexConverter(object):
 
 
 def translate_encoded_value(encoded_value):
-  print('translate value : {} -> {}'.format(encoded_value, encoded_value.value))
+  print('translate value(type : {}) : {} -> {}'.format(encoded_value.type, encoded_value, encoded_value.value))
+  
   return encoded_value.value
 
 def translate_encoded_array(encoded_array):
   #print(encoded_array)
   return [x.value for x in encoded_array.values]
 
+
+class ByteCodeConverter(object):
+  def __init__(self, manager):
+    pass
 
 
 
