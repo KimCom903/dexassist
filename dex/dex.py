@@ -669,6 +669,8 @@ class TryItem(DexItem):
     'insn_count': USHORT,
     'handler_off': USHORT
   }
+  def parse_remain(self):
+    self.handlers = EncodedCatchHandlerList(self.manager, self.root_stream, self.handler_off)
 
 
 class EncodedCatchHandlerList(DexItem):
@@ -691,7 +693,7 @@ class EncodedCatchHandler(DexItem):
 
   def parse_remain(self):
     self.handlers = []
-    self.catch_all_addr = 0
+    self.catch_all_addr = -1
     for x in range(abs(self.size)):
       item = EncodedTypeAddrpair(self.manager, self.root_stream, self.base_index + self.read_size)
       self.handlers.append(item)

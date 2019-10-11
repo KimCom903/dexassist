@@ -96,11 +96,13 @@ try-catch class.
 
 """
 class TryCatch(object):
-  def __init__(self, editor, start, end, catch_handlers):
+  def __init__(self, editor, start, end, catch_handlers, catch_all_handlers):
     self.editor = editor
     self.start = start
     self.end = end
     self.catch_handlers = catch_handlers
+    self.catch_all_handlers = catch_all_handlers
+
   def is_in(self, opcode):
     if isinstance(opcode, int):
       offset = opcode
