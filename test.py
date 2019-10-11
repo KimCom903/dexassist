@@ -1,8 +1,8 @@
 from dex import converter, dex
 
 
-def main():
-  with open('classes.dex', 'rb') as f:
+def print_dex(dex_path):
+  with open(dex_path, 'rb') as f:
     x = f.read()
   manager = dex.DexManager()
   stream = dex.StreamReader(x, manager)
@@ -13,6 +13,10 @@ def main():
       print(f)
     for m in clazz.methods:
       print(m)
+
+def main():
+  print_dex('test_binary/classes.dex')
+  #print_dex('test_binary/large.dex')
 
 
 if __name__ == '__main__':

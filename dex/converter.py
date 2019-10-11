@@ -111,8 +111,7 @@ class DexConverter(object):
           parameter_type_idx = type_item.type_idx
           type_info = manager.type_list[parameter_type_idx]
           parameter.append(type_info)
-      
-      method_signature = '{}({})'.format(manager.type_list[return_type_idx], ''.join(parameter))
+      method_signature = '{}({})'.format(manager.type_list[return_type_idx] , ''.join(parameter))
 
       x = self.create_dex_method(item, method_name, access_flags, method_signature, code)
       x.annotations = method_annotation_table.get(method_idx, [])
@@ -140,7 +139,7 @@ class DexConverter(object):
           type_info = manager.type_list[parameter_type_idx]
           parameter.append(type_info)
       
-      method_signature = '{}({})'.format(manager.type_list[return_type_idx], ''.join(parameter))
+      method_signature = '{}({})'.format(manager.type_list[return_type_idx] , ''.join(parameter))
       x = self.create_dex_method(item, method_name, access_flags, method_signature, code)
       x.annotations = method_annotation_table.get(method_idx, [])
       x.param_annotations = param_annotation_table.get(method_idx, [])
@@ -166,5 +165,15 @@ def translate_encoded_value(encoded_value):
   return encoded_value.value
 
 def translate_encoded_array(encoded_array):
-  print(encoded_array)
+  #print(encoded_array)
   return [x.value for x in encoded_array.values]
+
+
+
+
+class DexWriter(object):
+  def __init__(self, dex):
+    self.dex = dex
+  def save_as(self, stream):
+    pass
+

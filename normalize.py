@@ -19,11 +19,24 @@ class DexClassItem(object):
     self.superclass = None
     self.source_file_name = None
     self.interfaces = []
-
+  def set_name(self):
+    return self.name
   def add_annotation(self, annotation):
     self.annotations.append(annotation)
   def __str__(self):
     return self.name
+
+  def get_related_strings(self):
+    ret = []
+    OP_CONST_STRING = -1
+    ret.append(self.name)
+    ret.append(self.type)
+    editor = self.get_editor()
+    for opcode in editor.opcodes:
+      if opcode.op == OP_CONST_STRING:
+        ret.append(opcode.get_string())
+    return ret
+
 class DexField(object):
   def __init__(self, parent, field_name, type_name, access_flags):
     self.annotations = []
@@ -39,6 +52,7 @@ class DexField(object):
       for ann in self.annotations:
         a.append('@' + str(ann))
       ret += ''.join(a)
+    print(ret)
     return ret
 
 
@@ -50,6 +64,7 @@ class DexMethod(object):
     self.clazz = parent
     self.return_type, self.params = self.parse_signature(signature)
     self.signature = signature
+    print('signature : {}'.format(signature))
     self.editor = editor
 
   def parse_signature(self, signature):
@@ -76,10 +91,3 @@ class DexAnnotation(object):
 
   def __str__(self):
     return '{}({})'.format(self.type_name, self.key_name_tuples)
-
-class DexCodeEditor(object):
-  def __init__(self):
-    self.bytecodes = []
-  
-  def set_label(self, bytecode):
-    pass

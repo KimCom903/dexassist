@@ -169,10 +169,10 @@ class StreamReader(object):
       BYTE: self.read_ubyte,
       UBYTE: self.read_ubyte,
 
-      SHORT: self.read_ushort,
+      SHORT: self.read_short,
       USHORT: self.read_ushort,
 
-      INT: self.read_uint,
+      INT: self.read_int,
       UINT: self.read_uint,
 
       LONG: self.read_ulong,
@@ -196,9 +196,19 @@ class StreamReader(object):
     ret.value = struct.unpack(self.UINT_FMT, ret.value)[0]
     return ret
 
+  def read_int(self, index, *args):
+    ret = self.__read(index, 4, *args)
+    ret.value = struct.unpack(self.INT_FMT, ret.value)[0]
+    return ret
+
   def read_ushort(self, index, *args):
     ret = self.__read(index, 2, *args)
     ret.value = struct.unpack(self.USHORT_FMT, ret.value)[0]
+    return ret
+
+  def read_short(self, index, *args):
+    ret = self.__read(index, 2, *args)
+    ret.value = struct.unpack(self.SHORT_FMT, ret.value)[0]
     return ret
 
   def read_ulong(self, index, *args):
@@ -213,6 +223,28 @@ class StreamReader(object):
   def read_signature(self, index, *args):
     ret = self.__read(index, 20, *args)
     return ret
+  def decode_string(self, arr):
+    ret = [None] * len(arr)
+    chr_index = 0
+    size = len(arr)
+    while chr_index < size:
+      c = arr[chr_index]
+      if c is None:
+        break
+      if (c >> 10) == 0b110110:
+        n = None
+        try:
+          n = arr[chr_index + 1]
+        except:
+          pass
+        if n and (n >> 10) == 0b110111:
+          ret[chr_index] = chr(((c & 0x3ff) << 10 | (n & 0x3ff)) + 0x10000)
+        else:
+          ret[chr_index] = chr(c)
+      else:
+        ret[chr_index] = chr(c)
+      chr_index += 1
+    return ''.join(ret).encode('utf-8')
 
   def read_string(self, index):
     s = 0
@@ -222,26 +254,29 @@ class StreamReader(object):
       a = self.read_ubyte(index + size).value
       size += 1
       if a == 0:
-        return DexPrimitive(ret.decode("utf-8"), size)
-      if a < 0x80:
-        ret.append(a)
-      elif (a & 0xe0) == 0xc0:
-        b = self.read_ubyte(index + size)
+        x = self.decode_string(ret)
+        #print('return string : {}'.format(x))
+        return DexPrimitive(x, size)
+      if a >> 7 == 0:
+        ret.append(a & 0x7f)
+      elif a >> 5 == 0b110:
+        b = self.read_ubyte(index + size).value
         size += 1
         if (b & 0xc0) != 0x80:
           raise Exception('BAD SECOND BYTE')
-        data = (((a & 0x1f) << 6)) | (b & 0x3f)
+        data = (((a & 0x1f) << 6) & 0xff) | b & 0x3f
         ret.append(data)
-      elif a & 0xf0 == 0xe0:
-        b = self.ubyte(index + size)
-        c = self.ubyte(index + size)
-        size += 2
+      elif a >> 4 == 0b1110:
+        b = self.read_ubyte(index + size).value
+        size += 1
+        c = self.read_ubyte(index + size).value
+        size += 1
         if ((b & 0xc0) != 0x80) or ((c & 0xc0) != 0x80):
           raise Exception('BAD THIRD BYTE')
-        data = ((a & 0x0f) << 12) | ((b & 0x3f) << 6) | (c & 0x3f)
+        data = (((a & 0xf) << 12) & 0xff) | ((( b & 0x3f) << 6) & 0xff) | c & 0x3f
         ret.append(data)
       else:
-        raise Exception('read_string error')
+        raise Exception('read string error')
 
   def read_sleb(self, index):
     result = 0
@@ -265,11 +300,11 @@ class StreamReader(object):
     shift = 0
     size = 0
     while True:
-      b = self.buf[index + size: index + size + 1][0]
+      b = self.buf[index + size]
       size += 1
       result |= ((b & 0x7f) << shift)
-      shift += 7
       if b & 0x80 == 0: break
+      shift += 7
     
     return DexPrimitive(result, size)
 
@@ -379,19 +414,61 @@ class EncodedValue(DexItem):
     self.value_size = ((self.value_type >> 5) & 0x7) + 1
     if self.type == ENCODED_VALUE_ARRAY:
       self.value = EncodedArray(self.manager, self.root_stream, self.base_index + self.read_size)
+      self.read_size += self.value.read_size
+      return
     elif self.type == ENCODED_VALUE_ANNOTATION:
       self.value = EncodedAnnotation(self.manager, self.root_stream, self.base_index + self.read_size)
+      self.read_size += self.value.read_size
+      return
     elif self.type == ENCODED_VALUE_BOOLEAN:
       self.value = ((self.value_type >> 5) == 1)
+      return
     elif self.type == ENCODED_VALUE_NULL:
       self.value = None
-    else: # later
-      self.value = []
-      for i in range(self.value_size):
-        self.value.append(self.root_stream.read_ubyte(self.base_index + self.read_size).value)
-        self.read_size += 1
+      return
+    elif self.type == ENCODED_VALUE_BYTE:
+      self.value = self.root_stream.read_ubyte(self.base_index + self.read_size).value
+      self.read_size += 1
+      return
+    value = bytearray(8)
+    for i in range(self.value_size):
+      value[i] = self.root_stream.read_ubyte(self.base_index + self.read_size).value
+      self.read_size += 1
+
+    if self.type in [ENCODED_VALUE_FLOAT, ENCODED_VALUE_DOUBLE]:
+      self.value = self.as_float(value)
+    else:
+      self.value = self.as_int(value)
+
+    if self.type == ENCODED_VALUE_METHOD_TYPE:
+      self.value = self.manager.proto_list[self.value]
+    elif self.type == ENCODED_VALUE_METHOD_HANDLE:
+      raise Exception('METHOD HANDLE IS NOT IMPLEMENTED')
+    elif self.type == ENCODED_VALUE_STRING:
+      self.value = self.manager.string_list[self.value]
+    elif self.type == ENCODED_VALUE_TYPE:
+      self.value = self.manager.type_list[self.value]
+    elif self.type == ENCODED_VALUE_FIELD:
+      self.value = self.manager.field_list[self.value]
+    elif self.type == ENCODED_VALUE_METHOD:
+      self.value = self.manager.method_list[self.value]
+    elif self.type == ENCODED_VALUE_ENUM:
+      self.value = self.manager.field_list[self.value]
+
+  def as_float(self, value):
+    if self.type == ENCODED_VALUE_DOUBLE:
+      return struct.unpack('d', value)[0]
+    return struct.unpack('f', value[:4])[0]
+
+  def as_int(self, value):
+    if self.type == ENCODED_VALUE_LONG:
+      return struct.unpack('L', value)[0]
+    return struct.unpack('I', value[:4])[0]
+
+
   def __str__(self):
-    return 'type : 0x{:08x} value : {}'.format(self.type, self.value)
+    return str(self.value)
+    #return 'type : 0x{:08x} value : {}'.format(self.type, self.value)
 
 
 
@@ -472,6 +549,7 @@ class ClassDefItem(DexItem):
     'static_values_off': UINT
   }
   def parse_remain(self):
+    print('parse class_idx {}'.format(self.class_idx))
     self.data = ClassDataItem(self.manager, self.root_stream, self.class_data_off)
     self.annotations = None
     if self.annotations_off:
@@ -530,6 +608,8 @@ class EncodedMethod(DexItem):
   }
   def parse_remain(self):
     self.code = None
+    print(str(self))
+    print('base_index : {}, read_size : {}'.format(self.base_index, self.read_size))
     if self.code_off:
       self.code = CodeItem(self.manager, self.root_stream, self.code_off)
 
@@ -565,7 +645,8 @@ class CodeItem(DexItem):
     self.padding = 0
     self.tries = []
     self.handlers = None
-
+    
+    print('insns_size : {} base_index : {} read_size : {}'.format(self.insns_size, self.base_index, self.read_size))
     for x in range(self.insns_size):
       item = self.root_stream.read_ushort(self.base_index + self.read_size)
       self.insns.append(item.value)
@@ -803,13 +884,14 @@ class HeaderItem(DexItem):
 
   def __init__(self, manager, root_stream, index):
     super(HeaderItem, self).__init__(manager, root_stream, index)
-
+    print(self)
 
     index = self.string_ids_off
+    print('string index : {}'.format(index))
     self.manager.string_list = []
     for x in range(self.string_ids_size):
       item = StringIdItem(self.manager, self.root_stream, index)
-      self.manager.string_list.append(item.get_value().value)
+      self.manager.string_list.append(item.get_value().value.decode('utf-8'))
       index += item.read_size
 
     index = self.type_ids_off
@@ -954,7 +1036,6 @@ class StringIdItem(DexItem):
 
   def get_value(self):
     if self.string_value is None:
-      
       v = StringDataItem(self.manager, self.root_stream, self.string_data_off)
       self.string_value = v.value
     return self.string_value

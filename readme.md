@@ -1,18 +1,19 @@
 
 
-## TODO
+# Contents
 
- * DexClassItem
+ - parsing
+ - editing
+ - saving
 
- * DexFieldItem
+## parsing
 
- * DexMethodItem
+## editing
 
- * DexCodeEditor
+ - edit class/method/field
+ - edit opcodes
 
- * DexByteCodes
 
-------
 
- * DexItem -> DexClassItem
 
+## edit opcodes
