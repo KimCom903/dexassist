@@ -857,6 +857,18 @@ class DexManager(object):
     return self.string_list[index]
   def get_type(self, index):
     return self.type_list[index]
+  def get_string_by_index(self, index):
+    return self.get_string(index)
+  def get_type_by_index(self, index):
+    return self.get_type(self, index)
+  def get_proto_by_index(self, index):
+    return self.proto_list[index]
+  def get_field_by_index(self, index):
+    return self.field_list[index]
+  def get_method_by_index(self, index):
+    return self.method_list[index]
+  def get_class_def_by_index(self, index):
+    return self.class_def_list[index]
 
 class HeaderItem(DexItem):
   descriptor = {
