@@ -80,6 +80,11 @@ class DexMethod(object):
       for ann in self.annotations:
         a.append('@' + str(ann))
       ret += ''.join(a)
+    opcodes = '\n'
+    if self.editor:
+      for x in self.editor.opcodes:
+        opcodes += str(x) + '\n'
+    ret += opcodes
     return ret
 
 class DexAnnotation(object):

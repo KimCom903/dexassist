@@ -1,6 +1,6 @@
 import normalize
 from dex import dex
-import editor
+from bytecodes import editor
 from bytecodes import base
 
 class DexConverter(object):
@@ -124,7 +124,7 @@ class DexConverter(object):
           parameter.append(type_info)
       method_signature = '{}({})'.format(manager.type_list[return_type_idx] , ''.join(parameter))
 
-      x = self.create_dex_method(item, method_name, access_flags, method_signature, code)
+      x = self.create_dex_method(manager, item, method_name, access_flags, method_signature, code)
       x.annotations = method_annotation_table.get(method_idx, [])
       x.param_annotations = param_annotation_table.get(method_idx, [])
       item.methods.append(x)
@@ -151,7 +151,7 @@ class DexConverter(object):
           parameter.append(type_info)
       
       method_signature = '{}({})'.format(manager.type_list[return_type_idx] , ''.join(parameter))
-      x = self.create_dex_method(item, method_name, access_flags, method_signature, code)
+      x = self.create_dex_method(manager, item, method_name, access_flags, method_signature, code)
       x.annotations = method_annotation_table.get(method_idx, [])
       x.param_annotations = param_annotation_table.get(method_idx, [])
       item.methods.append(x)
@@ -165,9 +165,10 @@ class DexConverter(object):
     f = normalize.DexField(parent, field_name, type_name, access_flags)
     return f
 
-  def create_dex_method(self, parent, method_name, access_flags, signature, code):
-    editor = None
-    m = normalize.DexMethod(parent, method_name, access_flags, signature, editor)
+  def create_dex_method(self, manager, parent, method_name, access_flags, signature, code):
+    if code:
+      x = code_to_editor(manager, code)
+    m = normalize.DexMethod(parent, method_name, access_flags, signature, x)
     return m
 
 
@@ -179,6 +180,12 @@ def translate_encoded_value(encoded_value):
 def translate_encoded_array(encoded_array):
   #print(encoded_array)
   return [x.value for x in encoded_array.values]
+
+def code_to_editor(manager, code):
+  e = editor.Editor()
+  e.manager = manager
+  ir = CodeItemReader(e, manager, code)
+  return e
 
 
 class ByteCodeConverter(object):
@@ -207,10 +214,11 @@ class CodeStream(object):
     return ret
 
 class CodeItemReader(object):
-  def __init__(self, editor, code_item):
+  def __init__(self, editor, manager, code_item):
     self.tries = []
     self.opcodes = []
     self.editor = editor
+    self.manager = manager
     stream = CodeStream(code_item.insns)
 
     while stream.index < code_item.insns_size:
@@ -218,19 +226,18 @@ class CodeItemReader(object):
       instruction = base.OpcodeFactory.from_stream(opcode, self.editor.manager, stream)
       self.opcodes.append(instruction)
     type_addrs = []
-    if code_item.tries:
-      for t in tries:
+    if code_item.tries and False:
+      for t in code_item.tries:
         catch_handlers = t.handlers
-        for handlers in catch_handlers:
-          for handler in handlers.list:
-            for type_addr_pair in handler.handlers:
-              type_idx, addr = type_addr_pair.type_idx, type_addr_pair.addr
-              type_addrs.append(self.manager.type_list[type_idx], addr)
-            catch_all_addr = handler.catch_all_addr
+        for handler in catch_handlers.list:
+          for type_addr_pair in handler.handlers:
+            type_idx, addr = type_addr_pair.type_idx, type_addr_pair.addr
+            type_addrs.append((self.manager.type_list[type_idx], addr))
+          catch_all_addr = handler.catch_all_addr
 
 
         trycatch = editor.TryCatch(self.editor, t.start_addr, t.start_addr + t.insn_count - 1, type_addrs, catch_all_addr)
         self.editor.tries.append(trycatch)
-    self.editor.opcodes = self.opcodes
+    self.editor.opcode_list = self.opcodes
 
 

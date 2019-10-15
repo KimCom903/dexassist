@@ -25,16 +25,15 @@ class Editor(object):
   def unique_key(self):
     self.__unique_key += 1
     return self.__unique_key
-  def __init__(self, code_item):
+  def __init__(self):
     """
       Parameters
-      code_item : OpCodeList
         virtualized opcode list
       initialize editor instance
     """
 
     self.tries = []
-    self.opcodes = []
+    self.opcode_list = []
     self.labels = []
     self.__unique_key = 0
     for x in self.opcodes:
@@ -68,8 +67,7 @@ class Editor(object):
     """
       opcode iterator
     """
-
-    pass
+    return self.opcode_list
 
   def is_in_try(self, opcode):
     offset = self.get_opcode_offset(opcode)
@@ -78,15 +76,15 @@ class Editor(object):
         return t
     return None
   def get_opcode_offset(self, opcode):
+    """
+      return current opcode offset
+      return -1 if opcode does not exist in opcodes
+    """
     i = 0
     for x in self.opcodes:
       if x.unique_key == opcode.unique_key:
         return i
       i += 1
-    """
-      return current opcode offset
-      return -1 if opcode does not exist in opcodes
-    """
     return -1
 
 
@@ -143,3 +141,13 @@ class Label(object):
   
   def get_offset(self):
     return self.editor.get_opcode_offset(self.op)
+
+
+"""
+```
+label = editor.get_label_by_name("test_label")
+opcode = editor.get_opcode_by_offset(68)
+if opcode 
+
+```
+"""

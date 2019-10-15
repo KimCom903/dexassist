@@ -6,6 +6,7 @@ INSTRUCT_TYPE_FIELD = 3
 INSTRUCT_TYPE_OFFSET = 4
 INSTRUCT_TYPE_KIND = 5
 INSTRUCT_TYPE_PROTO = 6
+
 # for odex
 INSTRUCT_TYPE_CALL_SITE = 7
 INSTRUCT_TYPE_METHOD_HANDLE = 8
@@ -13,34 +14,39 @@ INSTRUCT_TYPE_CALL_METHOD = 9
 INSTRUCT_TYPE_CALL_PROTO = 10
 
 def translate_opcode(opcode):
-  return OPCODE_TABLE.get(opcode, [None, 'undefined'])[1]
-
+  return OPCODE_TABLE[opcode][1]
+def translate_operand_type(opcode):
+  return OPCODE_TABLE[opcode][2]
 class Instruction(object):
   def __init__(self, manager):
     self.manager = manager
     
-  def get_typeindex_string(opcode,index):
-    op_type = OPCODE_TABLE.get(opcode, [None, 'undefined'])[2]
-    if(op_type == INSTRUCT_TYPE_STRING):
-      return self.manager.get_string_by_index(index).get_name()
-    elif(op_type == INSTRUCT_TYPE_TYPE):
-      return self.manager.get_type_by_index(index).get_name()
-    elif(op_type == INSTRUCT_TYPE_METHOD):
+  def get_typeindex_string(self, opcode, index):
+    op_type = translate_operand_type(opcode)
+    if op_type == INSTRUCT_TYPE_STRING:
+      return '"' + self.manager.get_string_by_index(index) + '"'
+    elif op_type == INSTRUCT_TYPE_TYPE:
+      ret = self.manager.get_type_by_index(index)
+      if len(ret) > 1: return ret
+      if ret == 'v':
+        return 'void'
+      if ret == 'i':
+        return 'int'
+      return ret
+    elif op_type == INSTRUCT_TYPE_METHOD:
       return self.manager.get_method_by_index(index).get_name()
-    elif(op_type == INSTRUCT_TYPE_FILED):
+    elif op_type == INSTRUCT_TYPE_FIELD:
       return self.manager.get_field_by_index(index).get_name()
-    elif(op_type == INSTRUCT_TYPE_OFFSET):
+    elif op_type == INSTRUCT_TYPE_OFFSET:
       return self.manager.get_offset_by_index(index).get_name()
-    elif(op_type == INSTRUCT_TYPE_KIND):
+    elif op_type == INSTRUCT_TYPE_KIND:
       return self.manager.get_kind_by_index(index).get_name()
-    elif(op_type == INSTRUCT_TYPE_PROTO):
+    elif op_type == INSTRUCT_TYPE_PROTO:
       return self.manager.get_proto_by_index(index).get_name()
-    elif(op_type == INSTRUCT_TYPE_CALL_SITE):
+    elif op_type == INSTRUCT_TYPE_CALL_SITE:
       return self.manager.get_site_by_index(index).get_name()
-    elif(op_type == INSTRUCT_TYPE_METHOD_HANDLE):
+    elif op_type == INSTRUCT_TYPE_METHOD_HANDLE:
       return self.manager.get_method_handle_by_index(index).get_name()
-    def get_op(self):
-      return self.op 
 
   def __len__(self):
     raise Exception('length not defined')
@@ -53,7 +59,6 @@ class Instruction(object):
   def as_string(self):
     raise Exception('as_string not implemented')
     
-    
   def as_byte_stream(self):
     raise Exception('as_byte_stream not implemented')
     
@@ -62,13 +67,18 @@ class Instruction(object):
 
   def from_byte(self, stream):
     raise Exception('from_byte not implemented')
-    
+  def get_op(self):
+    return self.op
   def op_as_byte(self):
     return bytes(self.get_op())
 
+  def from_stream(self, stream):
+    return self.from_byte(stream)
+
   def op_as_string(self):
     return translate_opcode(self.get_op())
-
+  def get_opcode_string(self):
+    return self.op_as_string()
 # N/A 	00x 	N/A
 class Instruction00x(Instruction):
   def as_byte_stream(self):
@@ -89,13 +99,12 @@ class Instruction10x(Instruction):
     return self.get_opcode_string()
 
   def get_op(self):
-    raise Exception('get_op is not implemented')
+    return self.op
     
   def from_string(self):
     pass
   def from_byte(self, stream):
-    stream.readbyte()
-    self.op = stream.readbyte()
+    self.op = stream.read() & 0xff
     
   def __len__(self):
     return 2
@@ -106,16 +115,16 @@ class Instruction12x(Instruction):
     pass
   
   def as_string(self):
-    return '{} v{:1x}, v{:1x}'.format(self.get_opcode_string(), self.get_A(), self.get_B())
+    return '{} v{:1x}, v{:1x}'.format(self.get_opcode_string(), self.A, self.B)
   
   def from_string(self):
     pass
 
   def from_byte(self, stream):
-    temp = stream.readbyte()
-    self.B = temp >> 4 & 0xf
-    self.A = temp & 0xf
-    self.op = stream.readbyte()
+    temp = stream.read()
+    self.B = temp >> 12 & 0xf
+    self.A = temp >> 8 & 0xf
+    self.op = temp & 0xff
     
   def __len__(self):
     return 2
@@ -126,7 +135,7 @@ class Instruction11n(Instruction12x):
     pass
   
   def as_string(self):
-    return '{} v{:1x}, #+{:1x}'.format(self.get_opcode_string(), self.get_A(), self.get_B())
+    return '{} v{:1x}, #+{:1x}'.format(self.get_opcode_string(), self.A, self.B)
 
 # AA|op 	11x 	op vAA
 class Instruction11x(Instruction):
@@ -134,11 +143,12 @@ class Instruction11x(Instruction):
     pass
   
   def as_string(self): 
-    return '{} v{:02x}'.format(self.get_opcode_string(), self.get_AA())
+    return '{} v{:02x}'.format(self.get_opcode_string(), self.AA)
 
   def from_byte(self, stream):
-    self.AA = stream.readbyte()
-    self.op = stream.readbyte()
+    temp = stream.read()
+    self.AA = temp >> 8 & 0xff
+    self.op = temp & 0xff
        
   def __len__(self):
     return 2
@@ -149,12 +159,13 @@ class Instruction10t(Instruction):
     pass
   
   def as_string(self):
-    return '{} +{:02x}'.format(self.get_opcode_string(), self.get_AA())
+    return '{} +{:02x}'.format(self.get_opcode_string(), self.AA)
 
   def from_byte(self, stream):
-        self.AA = stream.readbyte()
-        self.op = stream.readbyte()
-        
+    temp = stream.read()
+    self.AA = temp >> 8 & 0xff
+    self.op = temp & 0xff
+
   def __len__(self):
     return 2   
 
@@ -164,12 +175,11 @@ class Instruction20t(Instruction):
     pass
   
   def as_string(self):
-    return '{} +{:04x}'.format(self.get_opcode_string(), self.get_AAAA())
+    return '{} +{:04x}'.format(self.get_opcode_string(), self.AAAA)
 
   def from_byte(self, stream):
-    stream.readbyte()
-    self.op = stream.readbyte()
-    self.AAAA = stream.readbyte() << 8 + stream.readbyte()
+    self.op = stream.read() & 0xff
+    self.AAAA = stream.read()
         
   def __len__(self):
     return 4
@@ -177,16 +187,17 @@ class Instruction20t(Instruction):
 # AA|op BBBB 	20bc 	op AA, kind@BBBB
 class Instruction20bc(Instruction):
   def as_byte_stream(self):
-    return self.get_AA() + self.op_as_byte() + self.get_BBBB()
+    return self.AA + self.op_as_byte() + self.BBBB
   
   def as_string(self):
-    str = '{} {:02x}, '.format(self.get_opcode_string(), self.get_AA()) + self.get_typeindex_string(self.get_op(), self.get_BBBB())
+    str = '{} {:02x}, '.format(self.get_opcode_string(), self.AA) + self.get_typeindex_string(self.get_op(), self.BBBB)
     return str
 
   def from_byte(self, stream):
-    self.AA = stream.readbyte()
-    self.op = stream.readbyte()
-    self.BBBB = stream.readbyte() << 8 + stream.readbyte()
+    temp = stream.read()
+    self.AA = temp >> 8  &0xff
+    self.op = temp & 0xff
+    self.BBBB = stream.read()
         
   def __len__(self):
     return 4         
@@ -197,31 +208,32 @@ class Instruction22x(Instruction):
     pass
 
   def as_string(self):
-    return '{} v{:02x}, v{:04x}'.format(self.get_opcode_string(), self.get_AA(), self.get_BBBB())    
+    return '{} v{:02x}, v{:04x}'.format(self.get_opcode_string(), self.AA, self.BBBB)    
 
   def from_byte(self, stream):
-    self.AA = stream.readbyte()
-    self.op = stream.readbyte()
-    self.BBBB = stream.readbyte() << 8 + stream.readbyte()
+    temp = stream.read()
+    self.AA = temp >> 8 & 0xff
+    self.op = temp & 0xff
+    self.BBBB = stream.read()
         
   def __len__(self):
     return 4        
 # AA|op BBBB    21t	    op vAA, +BBBB
 class Instruction21t(Instruction22x):
   def as_string(self):
-    return '{} v{:02x}, +{:04x}'.format(self.get_opcode_string(), self.get_AA(), self.get_BBBB()) 
+    return '{} v{:02x}, +{:04x}'.format(self.get_opcode_string(), self.AA, self.BBBB) 
 
 # AA|op BBBB    21s	    op vAA, #+BBBB    
 class Instruction21s(Instruction22x):
   def as_string(self):
-    return '{} v{:02x}, #+{:04x}'.format(self.get_opcode_string(), self.get_AA(), self.get_BBBB())
+    return '{} v{:02x}, #+{:04x}'.format(self.get_opcode_string(), self.AA, self.BBBB)
 
 # AA|op BBBB    21h	    op vAA, #+BBBB0000
 #                  	    op vAA, #+BBBB000000000000
 class Instruction21h(Instruction22x):
   def as_string(self):
-    return { 0x15 :  '{} v{:02x}, #+{:04x}0000'.format(self.get_opcode_string(), self.get_AA(), self.get_BBBB()),
-           0x19 : '{} v{:02x}, #+{:04x}000000000000'.format(self.get_opcode_string(), self.get_AA(), self.get_BBBB())
+    return { 0x15 :  '{} v{:02x}, #+{:04x}0000'.format(self.get_opcode_string(), self.AA, self.BBBB),
+           0x19 : '{} v{:02x}, #+{:04x}000000000000'.format(self.get_opcode_string(), self.AA, self.BBBB)
            }[self.get_op()]
 
 # AA|op BBBB    21c	    op vAA, type@BBBB
@@ -231,7 +243,7 @@ class Instruction21h(Instruction22x):
 #                               string@BBBB
 class Instruction21c(Instruction22x):
   def as_string(self):
-    str = '{} v{:02x}, '.format(self.get_opcode_string(), self.get_AA()) + self.get_typeindex_string(self.get_op() ,self.get_BBBB())  
+    str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AA) + self.get_typeindex_string(self.get_op() ,self.BBBB)  
     return str
 
 # AA|op CC|BB	23x	    op vAA, vBB, vCC
@@ -240,16 +252,18 @@ class Instruction23x(Instruction):
     pass
   
   def as_string(self):
-    return '{} v{:02x}, v{:02x}, v{:02x}'.format(self.get_opcode_string(), self.get_AA(), self.get_BB(), self.get_CC())
+    return '{} v{:02x}, v{:02x}, v{:02x}'.format(self.get_opcode_string(), self.AA, self.BB, self.CC)
 
   def from_string(self):
     pass
 
   def from_byte(self, stream):
-    self.AA = stream.readbyte()
-    self.op = stream.readbyte()
-    self.CC = stream.readbyte()
-    self.BB = stream.readbyte()
+    temp1 = stream.read()
+    temp2 = stream.read()
+    self.AA = temp1 >> 8 & 0xff
+    self.op = temp1 & 0xff
+    self.CC = temp2 >> 8 & 0xff
+    self.BB = temp2 & 0xff
         
   def __len__(self):
     return 4
@@ -257,7 +271,7 @@ class Instruction23x(Instruction):
 # AA|op CC|BB   22b     op vAA, vBB, #+CC
 class Instruction22b(Instruction23x):
   def as_string(self):
-    return '{} v{:02x}, v{:02x}, #+{:02x}'.format(self.get_opcode_string(), self.get_AA(), self.get_BB(), self.get_CC())
+    return '{} v{:02x}, v{:02x}, #+{:02x}'.format(self.get_opcode_string(), self.AA, self.BB, self.CC)
 
 # B|A|op CCCC	22t	    op vA, vB, +CCCC    
 class Instruction22t(Instruction):
@@ -265,17 +279,17 @@ class Instruction22t(Instruction):
     pass
   
   def as_string(self):
-    return '{} v{:01x}, v{:01x}, +{:04x}'.format(self.get_opcode_string(), self.get_A(), self.get_B(), self.get_CCCC())
+    return '{} v{:01x}, v{:01x}, +{:04x}'.format(self.get_opcode_string(), self.A, self.B, self.CCCC)
 
   def from_string(self):
     pass
 
   def from_byte(self, stream):
-    temp = stream.readbyte()
-    self.B = temp >> 4 & 0x0f
-    self.A = temp & 0x0f
-    self.op = stream.readbyte()
-    self.CCCC = stream.readbyte() << 8 + stream.readbyte()
+    temp = stream.read()
+    self.B = temp >> 12 & 0x0f
+    self.A = temp >> 8 & 0x0f
+    self.op = temp & 0xff
+    self.CCCC = stream.read()
     
   def __len__(self):
     return 4
@@ -283,20 +297,20 @@ class Instruction22t(Instruction):
 # B|A|op CCCC   22s     op vA, vB, #+CCCC
 class Instruction22s(Instruction22t):
   def as_string(self):
-    return '{} v{:01x}, v{:01x}, #+{:04x}'.format(self.get_opcode_string(), self.get_A(), self.get_B(), self.get_CCCC())
+    return '{} v{:01x}, v{:01x}, #+{:04x}'.format(self.get_opcode_string(), self.A, self.B, self.CCCC)
                                                  
 # B|A|op CCCC   22c     op vA, vB, type@CCCC
 #                                  field@CCCC                                                  
 class Instruction22c(Instruction22t):
   def as_string(self):
-    str = '{} v{:01x}, v{:01x}, '.format(self.get_opcode_string(), self.get_A(), self.get_B()) + self.get_typeindex_string(self.get_op() ,self.get_CCCC()) 
+    str = '{} v{:01x}, v{:01x}, '.format(self.get_opcode_string(), self.A, self.B) + self.get_typeindex_string(self.get_op() ,self.CCCC) 
     return str
 
 # B|A|op CCCC   22cs    op vA, vB, fieldoff@CCCC
 # not used instruction
 class Instruction22cs(Instruction22t):
   def as_string(self):
-    str = '{} v{:01x}, v{:01x}, '.format(self.get_opcode_string(), self.get_A(), self.get_B()) + self.get_typeindex_string(self.get_op() ,self.get_CCCC())
+    str = '{} v{:01x}, v{:01x}, '.format(self.get_opcode_string(), self.A, self.B) + self.get_typeindex_string(self.get_op() ,self.CCCC)
     return str
 
 # ØØ|op AAAAlo AAAAhi	30t	    op +AAAAAAAA
@@ -311,10 +325,9 @@ class Instruction30t(Instruction):
     pass
 
   def from_byte(self, stream):
-    stream.readbyte()
-    self.op = stream.readbyte()
-    self.AAAAlo = stream.readbyte() << 8 + stream.readbyte()
-    self.AAAAhi = stream.readbyte() << 8 + stream.readbyte()
+    self.op = stream.read() & 0xff
+    self.AAAAlo = stream.read()
+    self.AAAAhi = stream.read()
     self.AAAAAAAA = self.AAAAhi << 16 + self.AAAAlo
                                                          
   def __len__(self):
@@ -326,16 +339,15 @@ class Instruction32x(Instruction):
     pass
   
   def as_string(self):
-   return '{} v{:04x}, v{:04x}'.format(self.get_opcode_string(), self.get_AAAA(), self.get_BBBB())
+   return '{} v{:04x}, v{:04x}'.format(self.get_opcode_string(), self.AAAA, self.BBBB)
 
   def from_string(self):
     pass
 
   def from_byte(self, stream):
-    stream.readbyte()
-    self.op = stream.readbyte()
-    self.AAAA = stream.readbyte() << 8 + stream.readbyte()
-    self.BBBB = stream.readbyte() << 8 + stream.readbyte()
+    self.op = stream.read() & 0xff
+    self.AAAA = stream.read()
+    self.BBBB = stream.read()
     
   def __len__(self):
     return 6
@@ -346,16 +358,17 @@ class Instruction31i(Instruction):
     pass
   
   def as_string(self):
-   return '{} v{:02x}, #+{:08x}'.format(self.get_opcode_string(), self.get_AAAA(), self.get_BBBBBBBB())
+   return '{} v{:02x}, #+{:08x}'.format(self.get_opcode_string(), self.AA, self.BBBBBBBB)
 
   def from_string(self):
     pass
 
   def from_byte(self, stream):
-    self.AA = stream.readbyte()
-    self.op = stream.readbyte()
-    self.BBBBlo = stream.readbyte() << 8 + stream.readbyte()
-    self.BBBBhi = stream.readbyte() << 8 + stream.readbyte()
+    temp = stream.read()
+    self.AA = temp >> 8 & 0xff
+    self.op = temp & 0xff
+    self.BBBBlo = stream.read()
+    self.BBBBhi = stream.read()
     self.BBBBBBBB = self.BBBBhi << 16 + self.BBBBlo
                                                          
   def __len__(self):
@@ -364,12 +377,12 @@ class Instruction31i(Instruction):
 # AA|op BBBBlo BBBBhi   31t	op vAA, +BBBBBBBB
 class Instruction31t(Instruction31i):
   def as_string(self):
-   return '{} v{:02x}, +{:08x}'.format(self.get_opcode_string(), self.get_AAAA(), self.get_BBBBBBBB())
+   return '{} v{:02x}, +{:08x}'.format(self.get_opcode_string(), self.AAAA, self.BBBBBBBB)
 
 # AA|op BBBBlo BBBBhi   31c	op vAA, string@BBBBBBBB
 class Instruction31c(Instruction31i):
   def as_string(self):
-   str = '{} v{:02x}, '.format(self.get_opcode_string(), self.get_AAAA()) + self.get_typeindex_string(self.get_op(), self.get_BBBBBBBB())
+   str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AAAA) + self.get_typeindex_string(self.get_op(), self.BBBBBBBB)
    return str
 
 # A|G|op BBBB F|E|D|C	35c	    [A=5] op {vC, vD, vE, vF, vG}, meth@BBBB
@@ -383,35 +396,33 @@ class Instruction31c(Instruction31i):
 class Instruction35c(Instruction):
   def as_byte_stream(self):
     pass
-  
   def as_string(self):
-    if(self.get_A()==5):
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.get_C(), self.get_D(), self.get_E(), self.get_F(), self.get_G()) + '}, ' + self.get_typeindex_string(self.get_op() ,self.get_BBBB())
-    elif(self.get_A()==4):
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.get_C(), self.get_D(), self.get_E(), self.get_F()) + '}, ' + self.get_typeindex_string(self.get_op() ,self.get_BBBB())
-    elif(self.get_A()==3):
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}'.format(self.get_C(), self.get_D(), self.get_E()) + '}, ' + self.get_typeindex_string(self.get_op() ,self.get_BBBB())
-    elif(self.get_A()==2):
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}'.format(self.get_C(), self.get_D()) + '}, ' + self.get_typeindex_string(self.get_op() ,self.get_BBBB()) 
-    elif(self.get_A()==1):
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}'.format(self.get_C()) + '}, ' + self.get_typeindex_string(self.get_op() ,self.get_BBBB())
-    elif(self.get_A()==0):
-      str = '{} '.format(self.get_opcode_string()) + '{}, ' + self.get_typeindex_string(self.get_op() ,self.get_BBBB())                                                         
+    if self.A==5:
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F, self.G) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)
+    elif self.A==4:
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)
+    elif self.A==3:
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)
+    elif self.A==2:
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}'.format(self.C, self.D) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB) 
+    elif self.A==1:
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}'.format(self.C) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)
+    elif self.A==0:
+      str = '{} '.format(self.get_opcode_string()) + '{}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)                                                         
     return str
 
   def from_string(self):
     pass
 
   def from_byte(self, stream):
-    temp = stream.readbyte()
-    self.A = temp >> 4 & 0x0f
-    self.G = temp & 0x0f
-    self.op = stream.readbyte()
-    self.BBBB = stream.readbyte() << 8 + stream.readbyte()
-    temp = stream.readbyte()
-    self.F = temp >> 4 & 0x0f
-    self.E = temp & 0x0f
-    temp = stream.readbyte()
+    temp = stream.read()
+    self.A = temp >> 12 & 0x0f
+    self.G = temp >> 8 & 0x0f
+    self.op = temp & 0xff
+    self.BBBB = stream.read()
+    temp = stream.read()
+    self.F = temp >> 12 & 0x0f
+    self.E = temp >> 8 & 0x0f
     self.D = temp >> 4 & 0x0f
     self.C = temp & 0x0f  
     
@@ -444,17 +455,18 @@ class Instruction3rc(Instruction):
     pass
   
   def as_string(self):
-    str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:04x} .. v{:04x}'.format(self.get_CCCC(), self.get_CCCC() + self.get_AA() -1) + '}, ' + self.get_typeindex_string(self.get_op() ,self.get_BBBB())                                              
+    str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:04x} .. v{:04x}'.format(self.CCCC, self.CCCC + self.AA -1) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)                                              
     return str
 
   def from_string(self):
     pass
 
   def from_byte(self, stream):
-    self.AA = stream.readbyte()
-    self.op = stream.readbyte()
-    self.BBBB = stream.readbyte() << 8 + stream.readbyte()
-    self.CCCC = stream.readbyte() << 8 + stream.readbyte()
+    temp = stream.read()
+    self.AA = temp >> 8 & 0xff
+    self.op = temp & 0xff
+    self.BBBB = stream.read()
+    self.CCCC = stream.read()
     
   def __len__(self):
     return 6
@@ -477,17 +489,17 @@ class Instruction45cc(Instruction):
     pass
   
   def as_string(self):
-    if(self.get_A()==5):
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.get_C(), self.get_D(), self.get_E(), self.get_F(), self.get_G()) + '}, ' + self.manager.get_method_by_index(self.get_BBBB()).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
-    elif(self.get_A()==4):
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.get_C(), self.get_D(), self.get_E(), self.get_F()) + '}, ' + self.manager.get_method_by_index(self.get_BBBB()).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
-    elif(self.get_A()==3):
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}'.format(self.get_C(), self.get_D(), self.get_E()) + '}, ' + self.manager.get_method_by_index(self.get_BBBB()).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
-    elif(self.get_A()==2):
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}'.format(self.get_C(), self.get_D()) + '}, ' + self.manager.get_method_by_index(self.get_BBBB()).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
-    elif(self.get_A()==1):
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}'.format(self.get_C()) + '}, ' + self.manager.get_method_by_index(self.get_BBBB()).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()                                                   
-    return str
+    if self.A == 5:
+      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F, self.G) + '}, ' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
+    if self.A == 4:
+      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F) + '}, ' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
+    if self.A == 3:
+      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E) + '}, ' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
+    if self.A == 2:
+      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}'.format(self.C, self.D) + '}, ' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
+    if self.A == 1:
+      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}'.format(self.C) + '}, ' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()                                                   
+    return 'INVALID FORMAT INSTRUCTION45CC'
 
   def from_string(self):
     pass
@@ -515,7 +527,7 @@ class Instruction4rcc(Instruction):
     pass
   
   def as_string(self):
-    str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:04x} .. v{:04x}'.format(self.get_CCCC(), self.get_CCCC() + self.get_AA() -1) + '}' + self.manager.get_method_by_index(self.get_BBBB()).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()                                             
+    str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:04x} .. v{:04x}'.format(self.CCCC, self.CCCC + self.AA -1) + '}' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()                                             
     return str
 
   def from_string(self):
@@ -537,7 +549,7 @@ class Instruction51l(Instruction):
     pass
   
   def as_string(self):
-   return '{} v{:02x}, #+{:16x}'.format(self.get_opcode_string(), self.get_AAAA(), self.get_BBBBBBBBBBBBBBBB())
+   return '{} v{:02x}, #+{:16x}'.format(self.get_opcode_string(), self.AAAA, self.get_BBBBBBBBBBBBBBBB())
 
   def from_string(self):
     pass

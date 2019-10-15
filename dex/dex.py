@@ -530,6 +530,8 @@ class FieldIdItem(DexItem):
     'type_idx': USHORT,
     'name_idx': UINT
   }
+  def get_name(self):
+    return self.manager.string_list[self.name_idx]
 
 class MethodIdItem(DexItem):
   descriptor = {
@@ -537,6 +539,8 @@ class MethodIdItem(DexItem):
     'proto_idx': USHORT,
     'name_idx': UINT
   }
+  def get_name(self):
+    return self.manager.string_list[self.name_idx]
 class ClassDefItem(DexItem):
   descriptor = {
     'class_idx': UINT,
@@ -860,7 +864,7 @@ class DexManager(object):
   def get_string_by_index(self, index):
     return self.get_string(index)
   def get_type_by_index(self, index):
-    return self.get_type(self, index)
+    return self.get_type(index)
   def get_proto_by_index(self, index):
     return self.proto_list[index]
   def get_field_by_index(self, index):
