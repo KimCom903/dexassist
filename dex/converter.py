@@ -173,7 +173,7 @@ class DexConverter(object):
 
 
 def translate_encoded_value(encoded_value):
-  print('translate value(type : {}) : {} -> {}'.format(encoded_value.type, encoded_value, encoded_value.value))
+  #print('translate value(type : {}) : {} -> {}'.format(encoded_value.type, encoded_value, encoded_value.value))
   
   return encoded_value.value
 
