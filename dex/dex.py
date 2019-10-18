@@ -539,6 +539,9 @@ class MethodIdItem(DexItem):
     'proto_idx': USHORT,
     'name_idx': UINT
   }
+  def repr(self):
+    return self.manager.type_list[self.class_idx] + '->' + self.manager.string_list[self.name_idx]
+
   def get_name(self):
     return self.manager.string_list[self.name_idx]
 class ClassDefItem(DexItem):
@@ -617,6 +620,7 @@ class EncodedMethod(DexItem):
   def parse_remain(self):
     self.code = None
     if self.code_off:
+      print('parse code')
       self.code = CodeItem(self.manager, self.root_stream, self.code_off)
 
 class TypeList(DexItem):
@@ -647,6 +651,7 @@ class CodeItem(DexItem):
   }
 
   def parse_remain(self):
+    #print('codesize {}'.format(self.insns_size))
     self.insns = []
     self.padding = 0
     self.tries = []
@@ -656,6 +661,7 @@ class CodeItem(DexItem):
       item = self.root_stream.read_ushort(self.base_index + self.read_size)
       self.insns.append(item.value)
       self.read_size += item.read_size
+    #print('read instruction finished')
     if self.tries_size != 0 and self.insns_size % 2 == 1:
       self.padding = 0
       self.read_size += 2
@@ -663,10 +669,13 @@ class CodeItem(DexItem):
       item = TryItem(self.manager, self.root_stream, self.base_index + self.read_size)
       self.tries.append(item)
       self.read_size += item.read_size
+    #print('tries finished, parse size was {}'.format(self.tries_size))
     if self.tries_size:
       self.handlers = EncodedCatchHandlerList(self.manager, self.root_stream, self.base_index + self.read_size)
       self.read_size += self.handlers.read_size
-
+    for x in self.tries:
+      x.handlers = EncodedCatchHandler(self.manager, self.root_stream, x.handler_off + self.handlers.base_index)
+    #print('parse finished')
 class TryItem(DexItem):
   descriptor = {
     'start_addr': UINT,
@@ -674,6 +683,7 @@ class TryItem(DexItem):
     'handler_off': USHORT
   }
   def parse_remain(self):
+    print('handler offset : {}'.format(self.handler_off))
     self.handlers = EncodedCatchHandlerList(self.manager, self.root_stream, self.handler_off)
 
 
@@ -684,6 +694,7 @@ class EncodedCatchHandlerList(DexItem):
 
   def parse_remain(self):
     self.list = []
+    print("handler list size : {}".format(self.size))
     for x in range(self.size):
       item = EncodedCatchHandler(self.manager, self.root_stream, self.base_index + self.read_size)
       self.list.append(item)
@@ -698,6 +709,7 @@ class EncodedCatchHandler(DexItem):
   def parse_remain(self):
     self.handlers = []
     self.catch_all_addr = -1
+    print('encoded catch handler size : {}'.format(self.size))
     for x in range(abs(self.size)):
       item = EncodedTypeAddrpair(self.manager, self.root_stream, self.base_index + self.read_size)
       self.handlers.append(item)
