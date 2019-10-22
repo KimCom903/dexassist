@@ -34,7 +34,8 @@ class Instruction(object):
         return 'int'
       return ret
     elif op_type == INSTRUCT_TYPE_METHOD:
-      return self.manager.get_method_by_index(index).get_name()
+      method = self.manager.get_method_by_index(index)
+      return method.repr()
     elif op_type == INSTRUCT_TYPE_FIELD:
       return self.manager.get_field_by_index(index).get_name()
     elif op_type == INSTRUCT_TYPE_OFFSET:

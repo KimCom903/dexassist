@@ -1,18 +1,44 @@
 
 
+class DexWriteStream(object):
+  def write_object(self, offset, item):
+    """
+    return item.size
+    """
+    self.base_stream.tell(offset)
+    return item.write(self.base_stream, offset)
+  def write_object(self, item):
+    return item.write(self.base_stream, offset)
+  def get_current_offset(self):
+    return self.offset
+  def __init__(self, base_stream):
+    self.offset = 0
+    self.base_stream = base_stream
+  
+  def set_offset(self, offset):
+    self.offset = offset
+
 class DexWriteItem(object):
   descriptor = {}
   def __init__(self):
     pass
-  def as_byte(self):
-    self.as_byte_by_descriptor()
-    self.as_byte_remain()
 
-  def as_byte_by_descriptor(self):
+  def as_byte(self, stream):
+    ret = self.write_byte_descriptor(stream)
+    ret += self.write_byte_remain(stream)
+    return ret
+
+  def write_byte_remain(self, stream):
+    return 0
+
+  def write_byte_descriptor(self):
     pass
+  def write(self, base_stream):
+    return self.as_byte()
 
 
 class MUtf8(object):
+  pass
 
 class StringDataItem(DexWriteItem):
   descriptor = {
@@ -63,6 +89,7 @@ class StringDataItem(DexWriteItem):
         ret[offset2] = ((ch & 63) | 128)
       i += 1
       offset2 = offset
+    return ret
 
 
   def __init__(self, value):
