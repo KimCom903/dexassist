@@ -3,6 +3,7 @@ import struct
 import inspect
 """
 parse dex
+
 """
 
 BYTE = 1
@@ -672,29 +673,24 @@ class CodeItem(DexItem):
     if self.tries_size:
       self.handlers = EncodedCatchHandlerList(self.manager, self.root_stream, self.base_index + self.read_size)
       self.read_size += self.handlers.read_size
-
-      for try_element in self.tries:
-        try_element.set_handler(self.handlers)
-
+      print('finished, catch_handler_list')
+    for x in self.tries:
+      x.handlers = EncodedCatchHandler(self.manager, self.root_stream, x.handler_off + self.handlers.base_index)
+    #print('parse finished')
 class TryItem(DexItem):
   descriptor = {
     'start_addr': UINT,
     'insn_count': USHORT,
     'handler_off': USHORT
   }
-
-  def set_handler(self,handlers):
-    self.handler = EncodedCatchHandler(self.manager, self.root_stream, handlers.base_index + self.handler_off)
+  pass
 
 
 class EncodedCatchHandlerList(DexItem):
   descriptor = {
     'size': ULEB
   }
-  
-  def get_base_index(self):
-    return self.base_index
-  
+
   def parse_remain(self):
     self.list = []
     print("handler list size : {}".format(self.size))
@@ -1079,3 +1075,5 @@ class StringDataItem(DexItem):
   def __init__(self, manager, root_stream, index):
     super(StringDataItem, self).__init__(manager, root_stream, index)
     self.value = root_stream.read_string(index + self.read_size)
+
+
