@@ -673,18 +673,19 @@ class CodeItem(DexItem):
     if self.tries_size:
       self.handlers = EncodedCatchHandlerList(self.manager, self.root_stream, self.base_index + self.read_size)
       self.read_size += self.handlers.read_size
+      print('finished, catch_handler_list')
+      #이 부분을 읽어 올떄 잘못 되는거 같아요 hnadlerList_size가 2이상일 떄만 가끔 값이 이상해집니다.
     for x in self.tries:
       x.handlers = EncodedCatchHandler(self.manager, self.root_stream, x.handler_off + self.handlers.base_index)
     #print('parse finished')
+    #이부분을 돌때에는 대부분 정상적인 값들이 나옵니다.
 class TryItem(DexItem):
   descriptor = {
     'start_addr': UINT,
     'insn_count': USHORT,
     'handler_off': USHORT
   }
-  def parse_remain(self):
-    print('handler offset : {}'.format(self.handler_off))
-    self.handlers = EncodedCatchHandlerList(self.manager, self.root_stream, self.handler_off)
+  pass
 
 
 class EncodedCatchHandlerList(DexItem):
@@ -693,13 +694,7 @@ class EncodedCatchHandlerList(DexItem):
   }
 
   def parse_remain(self):
-    self.list = []
     print("handler list size : {}".format(self.size))
-    for x in range(self.size):
-      item = EncodedCatchHandler(self.manager, self.root_stream, self.base_index + self.read_size)
-      self.list.append(item)
-      self.read_size += item.read_size
-
 
 class EncodedCatchHandler(DexItem):
   descriptor = {
