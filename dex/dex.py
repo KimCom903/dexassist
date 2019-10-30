@@ -620,7 +620,6 @@ class EncodedMethod(DexItem):
   def parse_remain(self):
     self.code = None
     if self.code_off:
-      print('parse code')
       self.code = CodeItem(self.manager, self.root_stream, self.code_off)
 
 class TypeList(DexItem):

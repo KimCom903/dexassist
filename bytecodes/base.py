@@ -370,21 +370,22 @@ class Instruction31i(Instruction):
     self.op = temp & 0xff
     self.BBBBlo = stream.read()
     self.BBBBhi = stream.read()
-    self.BBBBBBBB = self.BBBBhi << 16 + self.BBBBlo
-                                                         
+    self.BBBBBBBB = self.BBBBlo << 16 | self.BBBBhi 
+
   def __len__(self):
     return 6
 
 # AA|op BBBBlo BBBBhi   31t	op vAA, +BBBBBBBB
 class Instruction31t(Instruction31i):
   def as_string(self):
-   return '{} v{:02x}, +{:08x}'.format(self.get_opcode_string(), self.AAAA, self.BBBBBBBB)
+    return '{} v{:02x}, +{:08x}'.format(self.get_opcode_string(), self.AA, self.BBBBBBBB)
 
 # AA|op BBBBlo BBBBhi   31c	op vAA, string@BBBBBBBB
 class Instruction31c(Instruction31i):
   def as_string(self):
-   str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AAAA) + self.get_typeindex_string(self.get_op(), self.BBBBBBBB)
-   return str
+    print('BBBBBBBB : {:08x}'.format(self.BBBBBBBB))
+    str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AA) + self.get_typeindex_string(self.get_op(), self.BBBBBBBB)
+    return str
 
 # A|G|op BBBB F|E|D|C	35c	    [A=5] op {vC, vD, vE, vF, vG}, meth@BBBB
 #                               [A=5] op {vC, vD, vE, vF, vG}, call_site@BBBB

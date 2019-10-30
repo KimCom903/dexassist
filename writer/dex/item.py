@@ -19,6 +19,8 @@ STRING = 12
 MAGIC = 13
 SIGNATURE = 14
 
+OFFSET = 15
+
 MOD_ADLER = 65521
 
 UINT_FMT = '<I'
@@ -196,14 +198,33 @@ class DexWriteStream(object):
   def set_offset(self, offset):
     self.offset = offset
 
+def onOffsetUpdate(offset_object):
+  def _offset_update(stream, caller):
+    if offset_object.offset == -1:
+      raise Exception('offset update failed, offset is not set!')
+    stream.at(offset_object.offset).write_uint(caller.base_index)
+  return _offset_update
+
+class Offset(object):
+  def __init__(self, item):
+    item.on_update.append(onOffsetUpdate(self))
+    self.offset = -1
+
+  def get_type(self):
+    return UINT
+
 class DexWriteItem(object):
   descriptor = {}
   def __init__(self):
-    pass
+    self.on_update = []
+    self.base_index = 0
 
   def as_byte(self, stream):
+    self.base_index = stream.get_offset()
     ret = self.write_byte_descriptor(stream)
     ret += self.write_byte_remain(stream)
+    for x in self.on_update:
+      x(stream, self)
     return ret
 
   def write_byte_remain(self, stream):
@@ -212,7 +233,12 @@ class DexWriteItem(object):
   def write_byte_descriptor(self, stream):
     ret = 0
     for x in self.descriptor:
-      ret += stream.write_map[self.descriptor[x]](getattr(self, x))
+      if x == OFFSET:
+        getattr(self, x).offset = stream.get_offset()
+        ret += stream.write_map[getattr(self, x).get_type()](0)
+
+      else:
+        ret += stream.write_map[self.descriptor[x]](getattr(self, x))
     return ret
 
   def write(self, stream):

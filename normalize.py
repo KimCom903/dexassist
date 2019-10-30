@@ -84,7 +84,10 @@ class DexMethod(object):
     if self.editor:
       for x in self.editor.opcodes:
         opcodes += str(x) + '\n'
+      for x in self.editor.tries:
+        opcodes += str(x) + '\n'
     ret += opcodes
+
     return ret
 
 class DexAnnotation(object):
