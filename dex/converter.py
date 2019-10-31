@@ -214,6 +214,12 @@ class CodeStream(object):
     ret = self.peek()
     self.index += 1
     return ret
+  @property
+  def offset(self):
+    return self.index
+
+  def at(self, offset):
+    self.index = offset
 
 class CodeItemReader(object):
   def __init__(self, editor, manager, code_item):
@@ -221,16 +227,33 @@ class CodeItemReader(object):
     self.opcodes = []
     self.editor = editor
     self.manager = manager
+    payload_size = 0
     stream = CodeStream(code_item.insns)
-    print('insns_size : {}'.format(code_item.insns_size))
+    #print('insns_size : {}'.format(code_item.insns_size))
     insns_size = code_item.insns_size
 
-    while stream.index < insns_size:
-      print('stream.index : {}'.format(stream.index))
+    while stream.index + payload_size < insns_size:
+      #print('stream.index : {}'.format(stream.index))
       opcode = stream.peek() & 0xff
 
       instruction = base.OpcodeFactory.from_stream(opcode, self.editor.manager, stream)
-      print(instruction)
+      if instruction.op == 0x26: # fill-array-data
+        payload = base.FillArrayDataPayload(instruction)
+        payload.read(stream, instruction.BBBBBBBB + instruction.base_offset)
+        payload_size += payload.get_size()
+        instruction.payload = payload
+      elif instruction.op == 0x2b: #packed-switch
+        payload = base.PackedSwitchPayload(instruction)
+        payload.read(stream, instruction.BBBBBBBB + instruction.base_offset)
+        payload_size += payload.get_size()
+        instruction.payload = payload
+      elif instruction.op == 0x2c: #sparse-switch
+        payload = base.SparseSwitchPayload(instruction)
+        payload.read(stream, instruction.BBBBBBBB + instruction.base_offset)
+        payload_size += payload.get_size()
+        instruction.payload = payload
+
+      #print(instruction)
       self.opcodes.append(instruction)
     type_addrs = []
     if code_item.tries and False:

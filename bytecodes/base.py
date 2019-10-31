@@ -74,6 +74,7 @@ class Instruction(object):
     return bytes(self.get_op())
 
   def from_stream(self, stream):
+    self.base_offset = stream.offset
     return self.from_byte(stream)
 
   def op_as_string(self):
@@ -216,7 +217,7 @@ class Instruction22x(Instruction):
     self.AA = temp >> 8 & 0xff
     self.op = temp & 0xff
     self.BBBB = stream.read()
-        
+    #print('BBBB : {:04x}'.format(self.BBBB))
   def __len__(self):
     return 4        
 # AA|op BBBB    21t	    op vAA, +BBBB
@@ -370,7 +371,7 @@ class Instruction31i(Instruction):
     self.op = temp & 0xff
     self.BBBBlo = stream.read()
     self.BBBBhi = stream.read()
-    self.BBBBBBBB = self.BBBBlo << 16 | self.BBBBhi 
+    self.BBBBBBBB = self.BBBBhi << 16 | self.BBBBlo
 
   def __len__(self):
     return 6
@@ -383,7 +384,7 @@ class Instruction31t(Instruction31i):
 # AA|op BBBBlo BBBBhi   31c	op vAA, string@BBBBBBBB
 class Instruction31c(Instruction31i):
   def as_string(self):
-    print('BBBBBBBB : {:08x}'.format(self.BBBBBBBB))
+    #print('BBBBBBBB : {:08x}'.format(self.BBBBBBBB))
     str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AA) + self.get_typeindex_string(self.get_op(), self.BBBBBBBB)
     return str
 
@@ -551,21 +552,117 @@ class Instruction51l(Instruction):
     pass
   
   def as_string(self):
-   return '{} v{:02x}, #+{:16x}'.format(self.get_opcode_string(), self.AAAA, self.get_BBBBBBBBBBBBBBBB())
+   return '{} v{:02x}, #+{:16x}'.format(self.get_opcode_string(), self.AA, self.BBBBBBBBBBBBBBBB)
 
   def from_string(self):
     pass
 
   def from_byte(self, stream):
-    self.AA = stream.readbyte()
-    self.op = stream.readbyte()
-    self.BBBBlo = stream.readbyte()
-    self.BBBBmidlo = stream.readbyte()
-    self.BBBBmidhi = stream.readbyte()
-    self.BBBBhi = stream.readbyte()
-    
+    x = stream.read()
+    self.AA = x >> 8 & 0xff
+    self.op = x & 0xff
+    self.BBBBBBBBBBBBBBBB = stream.read() << 48 | stream.read() << 32 | stream.read() << 16 | stream.read()
   def __len__(self):
     return 10
+
+class InstructionPayload(object):
+  def __init__(self, jump_from):
+    self.jump_from = jump_from
+    self.init()
+  def read(self, stream, offset):
+    pass
+
+  def get_size(self):
+    raise Exception('not implemented')
+  def init(self):
+    pass
+  def read_int(self, stream):
+    ret = stream.read()
+    ret |= stream.read() << 16
+    return ret
+class PackedSwitchPayload(InstructionPayload):
+  def init(self):
+    self.ident = 0x0100
+    self.size = 0
+    self.first_key = 0
+    self.targets = []
+    self.read_size = 0
+  
+  def read(self, stream, offset):
+    old_offset = stream.offset
+    stream.at(offset)
+    self.ident = stream.read()
+
+
+    assert(self.ident == 0x0100)
+    self.size = stream.read()
+
+    self.first_key = self.read_int(stream)
+
+    for x in range(self.size):
+      self.targets.append(self.read_int(stream))
+    self.read_size = stream.offset - offset
+    stream.at(old_offset)
+  def get_size(self):
+    return self.read_size
+
+class SparseSwitchPayload(InstructionPayload):
+  def init(self):
+    self.ident = 0x0300
+    self.size = 0
+    self.keys = []
+    self.targets = []
+    self.read_size = 0
+  def read(self, stream, offset):
+    old_offset = stream.offset
+    stream.at(offset)
+    self.ident = stream.read()
+    #print('ident : {:04x}'.format(self.ident))
+    assert(self.ident == 0x0200)
+    self.size = stream.read()
+    for x in range(self.size):
+      self.keys.append(self.read_int(stream))
+    for x in range(self.size):
+      self.targets.append(self.read_int(stream))
+    self.read_size = stream.offset - offset
+    stream.at(old_offset)
+  def get_size(self):
+    return self.read_size
+
+class FillArrayDataPayload(InstructionPayload):
+  def init(self):
+    self.ident = 0x0300
+    self.element_width = 0
+    self.size = 0
+    self.data = bytes()
+    self.read_size = 0
+
+  def read(self, stream, offset):
+    old_offset = stream.offset
+    stream.at(offset)
+    self.ident = stream.read()
+    #print('ident : {:04x}'.format(self.ident))
+    assert(self.ident == 0x0300)
+    self.element_width = stream.read()
+    self.size = self.read_int(stream)
+    self.data = bytearray()
+    short_length = self.size * self.element_width
+    if short_length % 2:
+      short_length += 1
+    short_length /= 2
+    if short_length * 10 != int(short_length) * 10:
+      raise Exception('SHORT LENGTH IS NOT EVEN!')
+    short_length = int(short_length)
+    #print('element_width : {} size : {:08x} short_length : {}'.format(self.element_width, self.size, short_length))
+
+    for x in range(short_length):
+      z = stream.read()
+      self.data.append((z >> 8) & 0xff)
+      self.data.append(z & 0xff)
+    self.read_size = stream.offset - offset
+    stream.at(old_offset)
+  def get_size(self):
+    return self.read_size
 
 
 class OpcodeFactory(object):
