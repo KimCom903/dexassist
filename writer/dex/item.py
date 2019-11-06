@@ -252,8 +252,8 @@ class StringIdItem(DexWriteItem):
   descriptor = {
     'string_data_off': UINT
   }
-  def __init__(self,value):
-    self.string_data_off = Offset(value)
+  def __init__(self,value,manager):
+    self.string_data_off = Offset(StringDataItem(value))
     pass
 
 class StringDataItem(DexWriteItem):
@@ -261,7 +261,7 @@ class StringDataItem(DexWriteItem):
     'utf16_size': ULEB
   }
 
-  def __init__(self, value):
+  def __init__(self, value,manager):
     self.string_value = value
     self.utf16_size = len(value)
 
@@ -274,14 +274,15 @@ class MaplistItem(DexWriteItem):
     'size': UINT
   }
   
-  def __init__(self, value):
+  def __init__(self, value, manager):
+    self.manager = manager
     self.map_list = value
     self.uint_size = len(value)
 
   def write_byte_remain(self, stream):
     ret = 0
     for it in self.map_list:
-      ret = MapItem(it).write(stream)
+      ret = MapItem(it,self.manager).write(stream)
     return ret
   
 class MapItem(DexWriteItem):
@@ -292,14 +293,37 @@ class MapItem(DexWriteItem):
     'offset': UINT
   }
   
-  def __init__(self,value):
+  def __init__(self,value,manager):
+    self.manager = manager
     self.type - value.type
     self.unused = 0
     self.size = value.size
-    self.offset = Offset(value)
+    type_desc = [
+      0x0000:	HeaderItem,
+      0x0001:	StringIdItem,
+      0x0002:	TypeIdItem,
+      0x0003:	ProtoIdItem,
+      0x0004:	FieldIdItem,
+      0x0005:	MethodIdItem,
+      0x0006:	ClassDefItem,
+      0x0007:	CallSiteIdItem,
+      0x0008:	MethodHandleItem,
+      0x1000:	MapList,
+      0x1001:	TypeList,
+      0x1002:	AnnotationSetRefList,
+      0x1003:	AnnotationSetItem,
+      0x2000:	ClassDataItem,
+      0x2001:	CodeItem,
+      0x2002:	StringDataItem,
+      0x2003:	DebugInfoItem,
+      0x2004:	AnnotationItem,
+      0x2005:	EncodedArrayItem,
+      0x2006:	AnnotationsDirectoryItem,
+      0xF000:	HiddenapiClassDataItem
+    ]
+    self.offset = Offset(type_desc[value.type]())
 
-## MapItem이랑 Maplist는 header file writer가 있는 writer.py에서 하는게 좋을 거 같아요 저희가 class화 시킨 쪽에선 없는 거 같은데
-## 일단은 있다고 가정하고 만들어 두겠습니다.
+## 이거 item 마다 param가 다름 일일히 하나하나 설정해야하는지 생각
 
 
 
@@ -307,8 +331,8 @@ class TypeIdItem(DexWriteItem):
   descriptor = {
     'descriptor_idx': UINT
   }
-  def __init__(self,type_value,StringSection):
-    self.descriptor_idx = StringSection.get_id(type_value)
+  def __init__(self,type_value,manager):
+    self.descriptor_idx = manager.StringSection.get_id(type_value)
     
 class ProtoIdItem(DexWriteItem):
   descriptor = {
@@ -316,10 +340,10 @@ class ProtoIdItem(DexWriteItem):
     'return_type_idx': UINT,
     'parameters_off': UINT
   }
-  def __init__(self, proto_value, StringSection, TypeSection):
-    self.shorty_idx = StringSection.get_id(proto_value)
-    self.return_type_idx = TypeSection.get_id(proto_value)
-    ## self.parameters_off
+  def __init__(self, proto_value, manager):
+    self.shorty_idx = manager.StringSection.get_id(proto_value)
+    self.return_type_idx = manager.TypeSection.get_id(proto_value)
+    self.parameters_off = Offset(TypeItem(proto_value))
 
 class FieldIdItem(DexWriteItem):
   descriptor = {
@@ -327,10 +351,10 @@ class FieldIdItem(DexWriteItem):
     'type_idx': USHORT,
     'name_idx': UINT
   }
-  def __init__(self, DexField, ClassSection, TypeSection, StringSection):
-    self.class_idx = ClassSection.get_id(DexField.clazz) 
-    self.type_idx = TypeSection.get_id(DexField.type)
-    self.name_idx = StringSection.get_id(DexField.name)
+  def __init__(self, DexField, manager):
+    self.class_idx = manager.ClassSection.get_id(DexField.clazz) 
+    self.type_idx = manager.TypeSection.get_id(DexField.type)
+    self.name_idx = manager.StringSection.get_id(DexField.name)
 
 class MethodIdItem(object):
   descriptor = {
@@ -338,10 +362,10 @@ class MethodIdItem(object):
     'proto_idx': USHORT,
     'name_idx': UINT
   }
-  def __init__(self, DexMethod, ClassSection, ProtoSection, StringSection):
-    self.class_idx = ClassSection.get_id(DexMethod.clazz)
-    self.proto_idx = ProtoSection.get_id(DexMethod.params) ## proto로 따로 저장된게 없어서 param으로 두긴 했는데 가능 할까요??
-    self.name_idx = StringSection.get_id(DexMethod.name)
+  def __init__(self, DexMethod, manager):
+    self.class_idx = manager.ClassSection.get_id(DexMethod.clazz)
+    self.proto_idx = manager.ProtoSection.get_id(DexMethod.params) ## proto로 따로 저장된게 없어서 param으로 두긴 했는데 가능 할까요??
+    self.name_idx = manager.StringSection.get_id(DexMethod.name)
 
 class ClassDefItem(DexWriteItem):
   descriptor = {
@@ -354,15 +378,15 @@ class ClassDefItem(DexWriteItem):
     'class_data_off': UINT,
     'static_values_off': UINT
   }
-  def __init__(self,DexClass, ClassSection):
-    self.class_idx = ClassSection.get_id(DexClass)
+  def __init__(self,DexClass, manager):
+    self.class_idx = manager.TypeSection.get_id(DexClass)
     self.access_flags = value.access_flag
-    self.superclass_idx = ClassSection.get_id(DexClass.superclass)
-    self.interfaces_off = Offset(DexClass.interfaces)
-    self.source_file_idx = Offset(DexClass.source_file_name)
-    self.annotations_off = Offset(DexClass.annotations)
-    self.class_data_off = Offset(DexClass)
-    self.static_values_off
+    self.superclass_idx = manager.TypeSection.get_id(DexClass.superclass)
+    self.interfaces_off = Offset(TypeList(DexClass.interfaces,self.manager))
+    self.source_file_idx = manager.StringSection.get_id(DexClass.source_file_name)
+    self.annotations_off = Offset(AnnotationsDirectoryItem(DexClass,self.manager))
+    self.class_data_off = Offset(ClassDataItem(DexClass,manager))
+    ##self.static_values_off
     
 
 class ClassDataItem(DexWriteItem):
@@ -372,7 +396,8 @@ class ClassDataItem(DexWriteItem):
     'direct_methods_size': ULEB,
     'virtual_methods_size': ULEB,
   }
-  def __init__(self,DexClass):
+  def __init__(self,DexClass,manager):
+    self.manager = manager
     self.class = DexClass
     self.static_fields = []
     self.instance_fields = []
@@ -393,13 +418,13 @@ class ClassDataItem(DexWriteItem):
   def write_byte_remain(self, stream):
     ret = 0
     for f in self.static_fields:
-      ret += EncodedField(f).write(stream)
+      ret += EncodedField(f,self.manger).write(stream)
     for f in self.instance_fields:
-      ret += EncodedField(f).write(stream)
+      ret += EncodedField(f,self.manager).write(stream)
     for m in self.direct_methods:
-      ret += EncodedMethod(m).write(stream)
+      ret += EncodedMethod(m,self.manager).write(stream)
     for m in self.virtual_methods:
-      ret += EncodedMethod(m).write(stream)
+      ret += EncodedMethod(m,self.manager).write(stream)
     return ret
   
 class EncodedField(DexWriteItem):
@@ -407,7 +432,7 @@ class EncodedField(DexWriteItem):
     'field_idx': ULEB,
     'access_flags': ULEB
   }
-  def __init__(self,DexField,FieldSection):
+  def __init__(self,DexField,manager):
     self.field_idx = FieldSection.get_id(DexField)
     self.access_flags = value.access_flags
     
@@ -417,19 +442,23 @@ class EncodedMethod(DexWriteItem):
     'access_flags': ULEB,
     'code_off': ULEB # OFFSET이 ULEB 타입
   }
-  def __init__(self,DexMethod,MethodSection,pre_idx):
-    self.method_idx_diff = pre_idx - MethodSection.get_id(DexMethod)
+  def __init__(self,DexMethod,manager,pre_idx):
+    self.method_idx_diff = pre_idx - manager.MethodSection.get_id(DexMethod)
     self.access_flags = DexMethod.access_flags
-    self.code_off = Offset(DexMethod.editor.opcode_list) # OFFSET이 ULEB 타입
+    self.code_off = Offset(CodeItem(DexMethod.editor),self,manager) # OFFSET이 ULEB 타입
   
-class CallSiteIdItem(DexWriteItem):
+class CallSiteIdItem(DexWriteItem): ##callsiteitem
   descriptor = {
     'call_site_off': UINT
   }
-  def __init__(self,value):
-    self.call_site_off = Offset(value)
+  def __init__(self,value,manager):
+    self.call_site_off = Offset(CallSiteItem(value,manager))
     pass
 
+class CallSiteItem(DexWriteItem): 
+  def __init__(self,value,manager):
+    pass
+  
 class MethodHandleItem(DexWriteItem):
   descriptor = {
     'method_handle_type': USHORT,
@@ -437,32 +466,33 @@ class MethodHandleItem(DexWriteItem):
     'field_or_method_id': USHORT,
     'unused2': USHORT
   }
-  def __init__(self,value):
+  def __init__(self,value,manager):
     self.method_handle_type = value.type 
     self.unused1 = 0
-    self.field_or_method_id = Offset(value)
+    self.field_or_method_id = 0
     self.unused2 = 0
     
 class TypeList(DexWriteItem):
   descriptor = {
     'size': UINT
   }  
-  def __init__(self,value):
+  def __init__(self,value,manager):
     ##value대신에 TypeSection을 쓰는것도 괜찮아 보임 다만 Section 쪽 구현이 안되어 있음
+    self.manager = manager
     self.list = value
     self.size = len(value)
   def write_byte_remain(self,stream):
     ret = 0
     for it in self.list:
-      ret += TypeItem(it).write(strem)
+      ret += TypeItem(it,self.manager).write(strem)
     return ret
 
 class TypeItem(DexWriteItem):
   descriptor = {
     'type_idx': USHORT
   } 
-  def __init__(self,type_value,TypeSection):
-    self.type_idx = TypeSection.get_id(type_value)
+  def __init__(self,type_value,manager):
+    self.type_idx = manager.StringSection.get_id(type_value)
     
    
 
@@ -475,7 +505,8 @@ class CodeItem(DexWriteItem):
     'debug_info_off': UINT,
     'insns_size': UINT,
   } 
-  def __init__(self,editor):
+  def __init__(self,editor,manager):
+    self.manager = manager
     self.tries = editor.tries
     self.opcodes = editor.opcode_list
     ## self.registers_size
@@ -490,10 +521,9 @@ class CodeItem(DexWriteItem):
   def write_byte_remain(self,stream):
     ret = 0
     for it in self.opcodes:
-      ## opcode를 byte로 해서 다시 쓰는 작업이 필요함
-    ##padding
+      it.write_byte_stream(stream)
     for it in self.tries:
-      ret += TryItem(it).write(stream)
+      ret += TryItem(it,self.manager).write(stream)
     ##handler쪽 문제
     return ret
 
@@ -503,10 +533,10 @@ class TryItem(DexWriteItem):
     'ins_count':	USHORT,
     'handler_off': USHORT
   }
-  def __init__(self,Editor_Try):
-    self.start_addr = Offset(Editor_Try) ##이게 맞는지 모르겠어요 addr인데 Offset으로 해도 되는지
+  def __init__(self,Editor_Try,manager):
+    ##self.start_addr 시작주소를 어떻게 해야할지 모르겠네요
     self.ins_count = Editor_Try.end - Editor_Try.start + 1 ##이거 try의 start와 end를 수정할 떄도 update 해줘야 할거 같아요
-    self.handler_off = Offset(Editor_Try.catch_handlers)
+    self.handler_off = Offset(EncodedCatchHandler(Editor_Try.catch_handlers,manager))
 
 class EncodedCatchHandlerList(DexWriteItem): ##이건 0으로 초기화 시켜두고 해야 할거 같아요 직접 wrtie하는 부분에서 해결해야 할것 같아요
   descriptor = {
@@ -520,7 +550,7 @@ class EncodedCatchHandler(DexWriteItem):
   descriptor = {
     'size': SLEB
   }  
-  def __init__(self,Editor_Try): ##catch handler_all_adr이부분 잘못 파싱된거 같아요
+  def __init__(self,Editor_Try,manager): ##catch handler_all_adr이부분 잘못 파싱된거 같아요
     self.size = len(Editor_Try.handler)
     self.catch_all_adr
   def write_byte_remain(self,stream):
@@ -534,9 +564,9 @@ class EncodedTypeAddrPair(DexWriteItem):
     'type_idx': ULEB
     'addr': ULEB
   }  
-  def __init__(self,TryCatch_handler_item,TypeSection):
-    self.type_idx =  TypeSection.get_id(TryCatch_handler_item[0])
-    self.addr = Offset(TryCatch_handler_item[1]) ## 이것도 그냥 주소로만 되어있는데 labeling이 되거나 따로 변경 됬어야 하는거 아닌가요?
+  def __init__(self,TryCatch_handler_item,manager):
+    self.type_idx = manager.TypeSection.get_id(TryCatch_handler_item[0])
+    self.addr ##주소로 되있는 것들은 어떻게 처리할지 모르겠네요
   
 class DebugInfoItem(DexWriteItem):
   descriptor = {
@@ -561,8 +591,8 @@ class AnnotationsDirectoryItem(DexWriteItem):
     'annotated_parameters_size': UINT
   }
   
-  def __init__(self, DexClass):
-    self.class_annotations_off = Offset(DexClass.annotations)
+  def __init__(self, DexClass,manager):
+    self.class_annotations_off = Offset(AnnotationSetItem(DexClass.annotations,manager))
     self.fields = []
     self.method_annotations = []
     self.parameter_annotations = []  ## 이것들 오름차순인데 순서 대로 들어가겠죠 풀도 똑같은 순서로 만드니까요
@@ -581,11 +611,11 @@ class AnnotationsDirectoryItem(DexWriteItem):
   def write_byte_remain(self,stream):
     ret = 0
     for a in self.fields:
-      ret += FieldAnnotation(a).write(stream)
+      ret += FieldAnnotation(a,manager).write(stream)
     for a in self.method_annotations:
-      ret += MethodAnnotation(a).write(stream)
+      ret += MethodAnnotation(a,manager).write(stream)
     for a in self.parameter_annotations:
-      ret += ParameterAnnotation(a).write(stream)
+      ret += ParameterAnnotation(a,manager).write(stream)
     return ret
 
 
@@ -594,20 +624,20 @@ class FieldAnnotation(DexWriteItem):
     'field_idx': UINT,
     'annotations_off': UINT
   }
-  def __init__(self,DexField,FieldSection):
-    self.field_idx = FieldSection.get_id(DexField)
+  def __init__(self,DexField,manager):
+    self.field_idx = manager.FieldSection.get_id(DexField)
     self.annotations = DexField.annotatations
-    self.annotations_off = Offset(DexField.annotations)
+    self.annotations_off = Offset(AnnotationSetItem(DexField.annotations,manager))
   
 class MethodAnnotation(DexWriteItem):
   descriptor = {
     'method_idx': UINT,
     'annotations_off': UINT
   }
-  def __init__(self,DexMethod,MethodSection):
-    self.method_idx = MethodSection.get_id(DexMethod)
+  def __init__(self,DexMethod,manager):
+    self.method_idx = manager.MethodSection.get_id(DexMethod)
     self.annotations = DexMethod.annotatations
-    self.annotations_off = Offset(DexMethod.annotations)
+    self.annotations_off = Offset(AnnotationSetItem(DexMethod.annotations,manager))
 
 
 class ParameterAnnotation(DexWriteItem):
@@ -615,52 +645,45 @@ class ParameterAnnotation(DexWriteItem):
     'method_idx': UINT,
     'annotations_off': UINT
   }
-  def __init__(self,DexMethod,MethodSection):
-    self.method_idx = MethodSection.get_id(DexMethod)
-    self.annotations_off = Offset(DexMethod.params)
+  def __init__(self,DexMethod,manager):
+    self.method_idx = manager.MethodSection.get_id(DexMethod)
+    self.annotations_off = Offset(AnnotationSetRefList(DexMethod.params,manager))
 
 class AnnotationSetRefList(DexWriteItem):
   descriptor = {
     'size': UINT
   }
-  def __init__(self,value):
-    self.list = []
-    
-    ## initpart
-    
+  def __init__(self,params,manager):
+    self.list = params
     self.size = len(list)
-   
-    
-  def write_byte_remain(self,stream):
+      
+  def write_byte_remain(self,stream,manager):
     ret = 0
     for a in self.list:
-      ret += AnnotationSetRefItem(a).write(stream)
+      ret += AnnotationSetRefItem(a,manager).write(stream)
     return ret
 
 class AnnotationSetRefItem(DexWriteItem):
   descriptor = {
     'annotations_off': UINT
   }
-  def __init__(self,value):
-    self.annotations_off = Offset(value)
+  def __init__(self,value,manager):
+    self.annotations_off = Offset(AnnotationSetItem(value,manager))
       
 
 class AnnotationSetItem(DexWriteItem):
   descriptor = {
     'size': UINT
   }
-  def __init__(self,value):
-    self.entries = []
-    
-    ## init__part
-    
+  def __init__(self,value,manager):
+    self.entries = value    
     self.size = len(self.entries)
    
     
   def write_byte_remain(self,stream):
     ret = 0
     for a in self.entries:
-      ret += AnnotationOffItem(a).write(stream)
+      ret += AnnotationOffItem(a,manager).write(stream)
     return ret
 
 
@@ -669,21 +692,21 @@ class AnnotationOffItem(DexWriteItem):
   descriptor = {
     'annotation_off': UINT
   }
-  def __init__(self,value):
-    self.annotations_off = Offset(value)
+  def __init__(self,value,manager):
+    self.annotations_off = Offset(AnnotationItem(value,manager))
 
 class AnnotationItem(DexWriteItem):
   descriptor = {
     'visibility': UBYTE
   }
-  def __init__(self,DexAnnotation):
+  def __init__(self,DexAnnotation,manager):
     self.annotation = DexAnnotation.target
     self.visibility = DexAnnotation.visibility
     
   def write_byte_remain(self,stream):
     ret = 0
     for a in self.annotations:
-      ret += EncodedAnnotation(a).write(stream)
+      ret += EncodedAnnotation(a,manager).write(stream)
     return ret  
 
   
@@ -693,11 +716,9 @@ class HiddenapiClassDataItem(DexWriteItem):
   descriptor = {
     'size': UINT
   }
-  def __init__(self,value):
+  def __init__(self,value,manager):
     self.offsets = []
     self.flags = []
   def write_byte_remain(self,stream):
     ret = 0
     return ret 
-  
-  
