@@ -356,7 +356,7 @@ class FieldIdItem(DexWriteItem):
     self.type_idx = manager.TypeSection.get_id(DexField.type)
     self.name_idx = manager.StringSection.get_id(DexField.name)
 
-class MethodIdItem(object):
+class MethodIdItem(DexWriteItem):
   descriptor = {
     'class_idx': USHORT,
     'proto_idx': USHORT,
@@ -510,10 +510,10 @@ class CodeItem(DexWriteItem):
     self.tries = editor.tries
     self.opcodes = editor.opcode_list
     ## self.registers_size
-    self.ins_size =
-    self.outs_size = 
+    ## self.ins_size
+    ## self.outs_size 
     self.tries_size = len(editor.tries)
-##  self.degub_info_off 
+    ## self.degub_info_off 
     self.insns_size = 0
     for it in editor.opcode_list:
       self.insns_size += len(it)/2
@@ -566,7 +566,7 @@ class EncodedTypeAddrPair(DexWriteItem):
   }  
   def __init__(self,TryCatch_handler_item,manager):
     self.type_idx = manager.TypeSection.get_id(TryCatch_handler_item[0])
-    self.addr ##주소로 되있는 것들은 어떻게 처리할지 모르겠네요
+    ##self.addr ##주소로 되있는 것들은 어떻게 처리할지 모르겠네요
   
 class DebugInfoItem(DexWriteItem):
   descriptor = {
@@ -595,7 +595,7 @@ class AnnotationsDirectoryItem(DexWriteItem):
     self.class_annotations_off = Offset(AnnotationSetItem(DexClass.annotations,manager))
     self.fields = []
     self.method_annotations = []
-    self.parameter_annotations = []  ## 이것들 오름차순인데 순서 대로 들어가겠죠 풀도 똑같은 순서로 만드니까요
+    self.parameter_annotations = []  
     for it in DexClass.fields:
       for f_anno in it.annotations:
         self.field.append(f_anno)
