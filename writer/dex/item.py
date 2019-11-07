@@ -429,11 +429,11 @@ class ClassDataItem(DexWriteItem):
   
 class EncodedField(DexWriteItem):
   descriptor = {
-    'field_idx': ULEB,
+    'field_idx_diff': ULEB,
     'access_flags': ULEB
   }
-  def __init__(self,DexField,manager):
-    self.field_idx = FieldSection.get_id(DexField)
+  def __init__(self,DexField,manager,pre_idx):
+    self.field_idx_diff = FieldSection.get_id(DexField) - pre_idx
     self.access_flags = value.access_flags
     
 class EncodedMethod(DexWriteItem):
@@ -443,7 +443,7 @@ class EncodedMethod(DexWriteItem):
     'code_off': ULEB # OFFSET이 ULEB 타입
   }
   def __init__(self,DexMethod,manager,pre_idx):
-    self.method_idx_diff = pre_idx - manager.MethodSection.get_id(DexMethod)
+    self.method_idx_diff = manager.MethodSection.get_id(DexMethod) - pre_idx
     self.access_flags = DexMethod.access_flags
     self.code_off = Offset(CodeItem(DexMethod.editor),self,manager) # OFFSET이 ULEB 타입
   
