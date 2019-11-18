@@ -404,12 +404,16 @@ class ClassDataItem(DexWriteItem):
     self.direct_methods = []
     self.virtual_methods = []
     for f in class.fields:
-      pass
+      if f.Is_static():
+        self.static_fields.append(f)
+      else:
+        self.instance_fields.append(f)
     for m in class.methods:
-      pass
-    
-    ## 이거 convert할때 method랑 field 따로 저장하면 안되나요???
-    
+      if m.Is_virtual():
+        self.virtual_methods.append(m)
+      else:
+        self.direct_methods.append(m)
+
     self.static_fields_size = len(self.static_fields)
     self.instance_fields_size = len(self.instance_fields)
     self.direct_methods_size = len(self.direct_methods)
@@ -676,10 +680,9 @@ class AnnotationSetItem(DexWriteItem):
     'size': UINT
   }
   def __init__(self,value,manager):
-    self.entries = value    
+    self.entries = value
     self.size = len(self.entries)
-   
-    
+     
   def write_byte_remain(self,stream):
     ret = 0
     for a in self.entries:
@@ -692,8 +695,8 @@ class AnnotationOffItem(DexWriteItem):
   descriptor = {
     'annotation_off': UINT
   }
-  def __init__(self,value,manager):
-    self.annotations_off = Offset(AnnotationItem(value,manager))
+  def __init__(self,DexAnnotation,manager):
+    self.annotations_off = Offset(AnnotationItem(DexAnnotation,manager))
 
 class AnnotationItem(DexWriteItem):
   descriptor = {
@@ -702,16 +705,59 @@ class AnnotationItem(DexWriteItem):
   def __init__(self,DexAnnotation,manager):
     self.annotation = DexAnnotation.target
     self.visibility = DexAnnotation.visibility
+    self.Annotation = DexAnnotation
+    
+  def write_byte_remain(self,stream):
+    return EncodedAnnotation(self.Annotation,manager).write(stream)
+  
+
+class EncodedArrayItem(DexWriteItem):
+  descriptor = {
+    'size': ULEB
+  }
+  
+class EncodedArray(DexWriteItem):
+  descriptor = {
+    'size': ULEB
+  }
+  
+
+class EncodedAnnotation(DexWriteItem):
+  descriptor = {
+    'type_idx': ULEB,
+    'size': ULEB
+  }
+  def __init__(self,DexAnnotation,manager):
+    self.type_idx = manager.TypeSection.get_id(DexAnnotation.type_name)
+    self.size = len(DexAnnotation.key_name_tuples)
+    self.elements = DexAnnotation.key_name_tuples
     
   def write_byte_remain(self,stream):
     ret = 0
-    for a in self.annotations:
-      ret += EncodedAnnotation(a,manager).write(stream)
-    return ret  
+    for a in self.elements:
+      ret += AnnotationElement(a,manager).write(stream)
+    return ret
 
+class AnnotationElemnet(DexWriteItem):
+  descriptor = {
+    'name_idx': ULEB,
+  }
+  def __init__(self,AnnotationElement,manager):
+    self.name_idx = manager.StringSection.get_id(AnnotationElement)
+  def write_byte_remain(self,stream):
+    return EncodedValue(AnnotationElement[1])
   
-### Encoded Value 타입에 따라서 쓰는 거 만들어야 함 미구현 상태
-
+class EncodedValue(DexWriteItem):
+  descriptor = {
+    'value_type': UBYTE
+  }
+  def __init__(self,DexValue,manager):
+    self.value_type = DexValue
+  
+  def write_byte_remain(self,stream):
+    pass
+    
+    
 class HiddenapiClassDataItem(DexWriteItem):
   descriptor = {
     'size': UINT
