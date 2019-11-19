@@ -74,6 +74,7 @@ class Instruction(object):
     return bytes(self.get_op())
 
   def from_stream(self, stream):
+    self.base_offset = stream.offset
     return self.from_byte(stream)
 
   def op_as_string(self):
@@ -83,19 +84,27 @@ class Instruction(object):
 # N/A 	00x 	N/A
 class Instruction00x(Instruction):
   def as_byte_stream(self):
-    return bytes()
+    pass
+  
+  def write_byte_stream(self,stream):
+    pass
   
   def as_string(self):
     return 'N/A'
-
+  
   def __len__(self):
     return 0
 
 # ØØ|op 	10x 	op
 class Instruction10x(Instruction):
   def as_byte_stream(self):
-    return b'\x00' + self.op_as_byte()
-
+    pass
+  
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(0)
+    stream.write_ubyte(self.op)
+    return len(self)
+    
   def as_string(self):
     return self.get_opcode_string()
 
@@ -115,6 +124,11 @@ class Instruction12x(Instruction):
   def as_byte_stream(self):
     pass
   
+  def write_byte_stream(self,stream):
+    stream.write_ubyte((self.B << 4) + self.A)
+    stream.write_ubyte(self.op)
+    return len(self)
+  
   def as_string(self):
     return '{} v{:1x}, v{:1x}'.format(self.get_opcode_string(), self.A, self.B)
   
@@ -132,9 +146,6 @@ class Instruction12x(Instruction):
 
 # B|A|op 	11n 	op vA, #+B
 class Instruction11n(Instruction12x):
-  def as_byte_stream(self):
-    pass
-  
   def as_string(self):
     return '{} v{:1x}, #+{:1x}'.format(self.get_opcode_string(), self.A, self.B)
 
@@ -142,6 +153,11 @@ class Instruction11n(Instruction12x):
 class Instruction11x(Instruction):
   def as_byte_stream(self):
     pass
+  
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(self.AA)
+    stream.write_ubyte(self.op)
+    return len(self)
   
   def as_string(self): 
     return '{} v{:02x}'.format(self.get_opcode_string(), self.AA)
@@ -159,6 +175,11 @@ class Instruction10t(Instruction):
   def as_byte_stream(self):
     pass
   
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(self.AA)
+    stream.write_ubyte(self.op)
+    return len(self)
+
   def as_string(self):
     return '{} +{:02x}'.format(self.get_opcode_string(), self.AA)
 
@@ -175,6 +196,12 @@ class Instruction20t(Instruction):
   def as_byte_stream(self):
     pass
   
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(0)
+    stream.write_ubyte(self.op)
+    stream.write_ushort(self.AAAA)
+    return len(self)
+  
   def as_string(self):
     return '{} +{:04x}'.format(self.get_opcode_string(), self.AAAA)
 
@@ -188,7 +215,13 @@ class Instruction20t(Instruction):
 # AA|op BBBB 	20bc 	op AA, kind@BBBB
 class Instruction20bc(Instruction):
   def as_byte_stream(self):
-    return self.AA + self.op_as_byte() + self.BBBB
+    pass
+  
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(self.AA)
+    stream.write_ubyte(self.op)
+    stream.write_ushort(self.BBBB)
+    return len(self)
   
   def as_string(self):
     str = '{} {:02x}, '.format(self.get_opcode_string(), self.AA) + self.get_typeindex_string(self.get_op(), self.BBBB)
@@ -207,6 +240,12 @@ class Instruction20bc(Instruction):
 class Instruction22x(Instruction):
   def as_byte_stream(self):
     pass
+  
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(self.AA)
+    stream.write_ubyte(self.op)
+    stream.write_ushort(self.BBBB)
+    return len(self)
 
   def as_string(self):
     return '{} v{:02x}, v{:04x}'.format(self.get_opcode_string(), self.AA, self.BBBB)    
@@ -216,7 +255,7 @@ class Instruction22x(Instruction):
     self.AA = temp >> 8 & 0xff
     self.op = temp & 0xff
     self.BBBB = stream.read()
-        
+    #print('BBBB : {:04x}'.format(self.BBBB))
   def __len__(self):
     return 4        
 # AA|op BBBB    21t	    op vAA, +BBBB
@@ -252,6 +291,13 @@ class Instruction23x(Instruction):
   def as_byte_stream(self):
     pass
   
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(self.AA)
+    stream.write_ubyte(self.op)
+    stream.write_ubyte(self.CC)
+    stream.write_ubyte(self.BB)
+    return len(self)
+  
   def as_string(self):
     return '{} v{:02x}, v{:02x}, v{:02x}'.format(self.get_opcode_string(), self.AA, self.BB, self.CC)
 
@@ -278,6 +324,12 @@ class Instruction22b(Instruction23x):
 class Instruction22t(Instruction):
   def as_byte_stream(self):
     pass
+  
+  def write_byte_stream(self,stream):
+    stream.write_ubyte((self.B << 4) + self.A))
+    stream.write_ubyte(self.op)
+    stream.write_ushort(self.CCCC)
+    return len(self)
   
   def as_string(self):
     return '{} v{:01x}, v{:01x}, +{:04x}'.format(self.get_opcode_string(), self.A, self.B, self.CCCC)
@@ -319,6 +371,12 @@ class Instruction30t(Instruction):
   def as_byte_stream(self):
     pass
   
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(0)
+    stream.write_ubyte(self.op)
+    stream.write_uint(self.AAAAAAAA)
+    return len(self)
+  
   def as_string(self):
     return '{} +{:08x}'.format(self.get_opcode_string(), self.get_AAAAAAAA())
 
@@ -339,6 +397,13 @@ class Instruction32x(Instruction):
   def as_byte_stream(self):
     pass
   
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(0)
+    stream.write_ubyte(self.op)
+    stream.write_ushort(self.AAAA)
+    stream.write_ushort(self.BBBB)
+    return len(self)
+    
   def as_string(self):
    return '{} v{:04x}, v{:04x}'.format(self.get_opcode_string(), self.AAAA, self.BBBB)
 
@@ -358,6 +423,12 @@ class Instruction31i(Instruction):
   def as_byte_stream(self):
     pass
   
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(self.AA)
+    stream.write_ubyte(self.op)
+    stream.write_uint(self.BBBBBBBB)
+    return len(self)
+  
   def as_string(self):
    return '{} v{:02x}, #+{:08x}'.format(self.get_opcode_string(), self.AA, self.BBBBBBBB)
 
@@ -370,21 +441,22 @@ class Instruction31i(Instruction):
     self.op = temp & 0xff
     self.BBBBlo = stream.read()
     self.BBBBhi = stream.read()
-    self.BBBBBBBB = self.BBBBhi << 16 + self.BBBBlo
-                                                         
+    self.BBBBBBBB = self.BBBBhi << 16 | self.BBBBlo
+
   def __len__(self):
     return 6
 
 # AA|op BBBBlo BBBBhi   31t	op vAA, +BBBBBBBB
 class Instruction31t(Instruction31i):
   def as_string(self):
-   return '{} v{:02x}, +{:08x}'.format(self.get_opcode_string(), self.AAAA, self.BBBBBBBB)
+    return '{} v{:02x}, +{:08x}'.format(self.get_opcode_string(), self.AA, self.BBBBBBBB)
 
 # AA|op BBBBlo BBBBhi   31c	op vAA, string@BBBBBBBB
 class Instruction31c(Instruction31i):
   def as_string(self):
-   str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AAAA) + self.get_typeindex_string(self.get_op(), self.BBBBBBBB)
-   return str
+    #print('BBBBBBBB : {:08x}'.format(self.BBBBBBBB))
+    str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AA) + self.get_typeindex_string(self.get_op(), self.BBBBBBBB)
+    return str
 
 # A|G|op BBBB F|E|D|C	35c	    [A=5] op {vC, vD, vE, vF, vG}, meth@BBBB
 #                               [A=5] op {vC, vD, vE, vF, vG}, call_site@BBBB
@@ -397,6 +469,15 @@ class Instruction31c(Instruction31i):
 class Instruction35c(Instruction):
   def as_byte_stream(self):
     pass
+  
+  def write_byte_stream(self,stream):
+    stream.write_ubyte((self.A << 4) + self.G))
+    stream.write_ubyte(self.op)
+    stream.write_ushort(self.BBBB)
+    stream.write_ubyte((self.F << 4) + self.E))
+    stream.write_ubyte((self.D << 4) + self.C))
+    return len(self)
+  
   def as_string(self):
     if self.A==5:
       str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F, self.G) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)
@@ -455,6 +536,13 @@ class Instruction3rc(Instruction):
   def as_byte_stream(self):
     pass
   
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(self.AA)
+    stream.write_ubyte(self.op)
+    stream.write_ushort(self.BBBB)
+    stream.write_ushort(self.CCCC)
+    return len(self)
+  
   def as_string(self):
     str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:04x} .. v{:04x}'.format(self.CCCC, self.CCCC + self.AA -1) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)                                              
     return str
@@ -488,6 +576,14 @@ class instruction3rmi(Instruction3rc):
 class Instruction45cc(Instruction):
   def as_byte_stream(self):
     pass
+  
+  def write_byte_stream(self,stream):
+    stream.write_ubyte((self.A << 4) + self.G))
+    stream.write_ubyte(self.op)
+    stream.write_ushort(self.BBBB)
+    stream.write_ubyte((self.F << 4) + self.E))
+    stream.write_ubyte((self.D << 4) + self.C))
+    return len(self)  
   
   def as_string(self):
     if self.A == 5:
@@ -527,6 +623,14 @@ class Instruction4rcc(Instruction):
   def as_byte_stream(self):
     pass
   
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(self.AA)
+    stream.write_ubyte(self.op)
+    stream.write_ushort(self.BBBB)
+    stream.write_ushort(self.CCCC)
+    stream.write_ushort(self.HHHH)
+    return len(self) 
+  
   def as_string(self):
     str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:04x} .. v{:04x}'.format(self.CCCC, self.CCCC + self.AA -1) + '}' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()                                             
     return str
@@ -548,23 +652,125 @@ class Instruction4rcc(Instruction):
 class Instruction51l(Instruction):
   def as_byte_stream(self):
     pass
-  
+
+  def write_byte_stream(self,stream):
+    stream.write_ubyte(self.AA)
+    stream.write_ubyte(self.op)
+    stream.write_ulong(self.BBBBBBBBBBBBBBBB)
+    return len(self)
+
   def as_string(self):
-   return '{} v{:02x}, #+{:16x}'.format(self.get_opcode_string(), self.AAAA, self.get_BBBBBBBBBBBBBBBB())
+   return '{} v{:02x}, #+{:16x}'.format(self.get_opcode_string(), self.AA, self.BBBBBBBBBBBBBBBB)
 
   def from_string(self):
     pass
 
   def from_byte(self, stream):
-    self.AA = stream.readbyte()
-    self.op = stream.readbyte()
-    self.BBBBlo = stream.readbyte()
-    self.BBBBmidlo = stream.readbyte()
-    self.BBBBmidhi = stream.readbyte()
-    self.BBBBhi = stream.readbyte()
-    
+    x = stream.read()
+    self.AA = x >> 8 & 0xff
+    self.op = x & 0xff
+    self.BBBBBBBBBBBBBBBB = stream.read() << 48 | stream.read() << 32 | stream.read() << 16 | stream.read()
   def __len__(self):
     return 10
+
+class InstructionPayload(object):
+  def __init__(self, jump_from):
+    self.jump_from = jump_from
+    self.init()
+  def read(self, stream, offset):
+    pass
+
+  def get_size(self):
+    raise Exception('not implemented')
+  def init(self):
+    pass
+  def read_int(self, stream):
+    ret = stream.read()
+    ret |= stream.read() << 16
+    return ret
+class PackedSwitchPayload(InstructionPayload):
+  def init(self):
+    self.ident = 0x0100
+    self.size = 0
+    self.first_key = 0
+    self.targets = []
+    self.read_size = 0
+  
+  def read(self, stream, offset):
+    old_offset = stream.offset
+    stream.at(offset)
+    self.ident = stream.read()
+
+
+    assert(self.ident == 0x0100)
+    self.size = stream.read()
+
+    self.first_key = self.read_int(stream)
+
+    for x in range(self.size):
+      self.targets.append(self.read_int(stream))
+    self.read_size = stream.offset - offset
+    stream.at(old_offset)
+  def get_size(self):
+    return self.read_size
+
+class SparseSwitchPayload(InstructionPayload):
+  def init(self):
+    self.ident = 0x0300
+    self.size = 0
+    self.keys = []
+    self.targets = []
+    self.read_size = 0
+  def read(self, stream, offset):
+    old_offset = stream.offset
+    stream.at(offset)
+    self.ident = stream.read()
+    #print('ident : {:04x}'.format(self.ident))
+    assert(self.ident == 0x0200)
+    self.size = stream.read()
+    for x in range(self.size):
+      self.keys.append(self.read_int(stream))
+    for x in range(self.size):
+      self.targets.append(self.read_int(stream))
+    self.read_size = stream.offset - offset
+    stream.at(old_offset)
+  def get_size(self):
+    return self.read_size
+
+class FillArrayDataPayload(InstructionPayload):
+  def init(self):
+    self.ident = 0x0300
+    self.element_width = 0
+    self.size = 0
+    self.data = bytes()
+    self.read_size = 0
+
+  def read(self, stream, offset):
+    old_offset = stream.offset
+    stream.at(offset)
+    self.ident = stream.read()
+    #print('ident : {:04x}'.format(self.ident))
+    assert(self.ident == 0x0300)
+    self.element_width = stream.read()
+    self.size = self.read_int(stream)
+    self.data = bytearray()
+    short_length = self.size * self.element_width
+    if short_length % 2:
+      short_length += 1
+    short_length /= 2
+    if short_length * 10 != int(short_length) * 10:
+      raise Exception('SHORT LENGTH IS NOT EVEN!')
+    short_length = int(short_length)
+    #print('element_width : {} size : {:08x} short_length : {}'.format(self.element_width, self.size, short_length))
+
+    for x in range(short_length):
+      z = stream.read()
+      self.data.append((z >> 8) & 0xff)
+      self.data.append(z & 0xff)
+    self.read_size = stream.offset - offset
+    stream.at(old_offset)
+  def get_size(self):
+    return self.read_size
 
 
 class OpcodeFactory(object):

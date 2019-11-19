@@ -556,7 +556,7 @@ class ClassDefItem(DexItem):
     'static_values_off': UINT
   }
   def parse_remain(self):
-    print('** parse class_idx {}'.format(self.manager.type_list[self.class_idx]))
+    #print('** parse class_idx {}'.format(self.manager.type_list[self.class_idx]))
     self.data = None
     if self.class_data_off:
       self.data = ClassDataItem(self.manager, self.root_stream, self.class_data_off)
@@ -620,7 +620,6 @@ class EncodedMethod(DexItem):
   def parse_remain(self):
     self.code = None
     if self.code_off:
-      print('parse code')
       self.code = CodeItem(self.manager, self.root_stream, self.code_off)
 
 class TypeList(DexItem):
@@ -673,32 +672,24 @@ class CodeItem(DexItem):
     if self.tries_size:
       self.handlers = EncodedCatchHandlerList(self.manager, self.root_stream, self.base_index + self.read_size)
       self.read_size += self.handlers.read_size
+      
     for x in self.tries:
       x.handlers = EncodedCatchHandler(self.manager, self.root_stream, x.handler_off + self.handlers.base_index)
     #print('parse finished')
+    
 class TryItem(DexItem):
   descriptor = {
     'start_addr': UINT,
     'insn_count': USHORT,
     'handler_off': USHORT
   }
-  def parse_remain(self):
-    print('handler offset : {}'.format(self.handler_off))
-    self.handlers = EncodedCatchHandlerList(self.manager, self.root_stream, self.handler_off)
+  pass
 
 
 class EncodedCatchHandlerList(DexItem):
   descriptor = {
     'size': ULEB
   }
-
-  def parse_remain(self):
-    self.list = []
-    print("handler list size : {}".format(self.size))
-    for x in range(self.size):
-      item = EncodedCatchHandler(self.manager, self.root_stream, self.base_index + self.read_size)
-      self.list.append(item)
-      self.read_size += item.read_size
 
 
 class EncodedCatchHandler(DexItem):
@@ -709,7 +700,7 @@ class EncodedCatchHandler(DexItem):
   def parse_remain(self):
     self.handlers = []
     self.catch_all_addr = -1
-    print('encoded catch handler size : {}'.format(self.size))
+    #print('encoded catch handler size : {}'.format(self.size))
     for x in range(abs(self.size)):
       item = EncodedTypeAddrpair(self.manager, self.root_stream, self.base_index + self.read_size)
       self.handlers.append(item)
