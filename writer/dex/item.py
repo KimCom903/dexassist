@@ -527,7 +527,7 @@ class CodeItem(DexWriteItem):
     for it in self.opcodes:
       it.write_byte_stream(stream)
     for it in self.tries:
-      ret += TryItem(it,self.manager).write(stream)
+      ret += TryItem(it,self.manager,stream).write(stream)
     ##handler쪽 문제
     return ret
 
@@ -537,30 +537,38 @@ class TryItem(DexWriteItem):
     'ins_count':	USHORT,
     'handler_off': USHORT
   }
-  def __init__(self,Editor_Try,manager):
-    ##self.start_addr 시작주소를 어떻게 해야할지 모르겠네요
+  def __init__(self,Editor_Try,manager,stream):
+    self.start_addr = stream.base
     self.ins_count = Editor_Try.end - Editor_Try.start + 1 ##이거 try의 start와 end를 수정할 떄도 update 해줘야 할거 같아요
     self.handler_off = Offset(EncodedCatchHandler(Editor_Try.catch_handlers,manager))
 
-class EncodedCatchHandlerList(DexWriteItem): ##이건 0으로 초기화 시켜두고 해야 할거 같아요 직접 wrtie하는 부분에서 해결해야 할것 같아요
+class EncodedCatchHandlerList(DexWriteItem):
   descriptor = {
     'size': ULEB
   }  
-  def __init__(self):
-    self.size = 0
-
+  def __init__(self,manager):
+    self.list = manager.CatchHandlerSection.list
+    self.size = len(manager.CatchHandlerSection.list)
+    self.manager = manager
+  def write byte_remain(self,stream):
+    ret = 0
+    for it in self.list:
+      ret += EncodedCatchHandler(it,manager)
   
 class EncodedCatchHandler(DexWriteItem): 
   descriptor = {
     'size': SLEB
   }  
-  def __init__(self,Editor_Try,manager): ##catch handler_all_adr이부분 잘못 파싱된거 같아요
-    self.size = len(Editor_Try.handler)
-    self.catch_all_adr
+  def __init__(self,handler_item,manager): ##catch handler_all_adr이부분 잘못 파싱된거 같아요
+    self.list = handler_item.handler
+    self.manager = manager
+    self.size = len(handler_item.handler)
+  ##self.catch_all_adr
   def write_byte_remain(self,stream):
     ret = 0
-    ret += 
-    ret += 
+    for it in list:
+      ret += EncodedTypeAddrPair(it,manager,stream.base)
+    ret += self.catch_all_adr
     return ret
   
 class EncodedTypeAddrPair(DexWriteItem):
@@ -568,9 +576,9 @@ class EncodedTypeAddrPair(DexWriteItem):
     'type_idx': ULEB
     'addr': ULEB
   }  
-  def __init__(self,TryCatch_handler_item,manager):
+  def __init__(self,TryCatch_handler_item,manager,base_off):
     self.type_idx = manager.TypeSection.get_id(TryCatch_handler_item[0])
-    ##self.addr ##주소로 되있는 것들은 어떻게 처리할지 모르겠네요
+    self.addr = base_off
   
 class DebugInfoItem(DexWriteItem):
   descriptor = {
