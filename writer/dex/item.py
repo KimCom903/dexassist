@@ -404,12 +404,12 @@ class ClassDataItem(DexWriteItem):
     self.direct_methods = []
     self.virtual_methods = []
     for f in class.fields:
-      if f.Is_static():
+      if f.is_static():
         self.static_fields.append(f)
       else:
         self.instance_fields.append(f)
     for m in class.methods:
-      if m.Is_virtual():
+      if m.is_virtual():
         self.virtual_methods.append(m)
       else:
         self.direct_methods.append(m)
@@ -703,17 +703,17 @@ class AnnotationOffItem(DexWriteItem):
   descriptor = {
     'annotation_off': UINT
   }
-  def __init__(self,DexAnnotation,manager):
-    self.annotations_off = Offset(AnnotationItem(DexAnnotation,manager))
+  def __init__(self,annotation,manager):
+    self.annotations_off = Offset(AnnotationItem(annotation,manager))
 
 class AnnotationItem(DexWriteItem):
   descriptor = {
     'visibility': UBYTE
   }
-  def __init__(self,DexAnnotation,manager):
-    self.annotation = DexAnnotation.target
-    self.visibility = DexAnnotation.visibility
-    self.Annotation = DexAnnotation
+  def __init__(self,annotation,manager):
+    self.annotation = annotation.target
+    self.visibility = annotation.visibility
+    self.Annotation = annotation
     
   def write_byte_remain(self,stream):
     return EncodedAnnotation(self.Annotation,manager).write(stream)
@@ -735,10 +735,10 @@ class EncodedAnnotation(DexWriteItem):
     'type_idx': ULEB,
     'size': ULEB
   }
-  def __init__(self,DexAnnotation,manager):
-    self.type_idx = manager.TypeSection.get_id(DexAnnotation.type_name)
-    self.size = len(DexAnnotation.key_name_tuples)
-    self.elements = DexAnnotation.key_name_tuples
+  def __init__(self,annotation,manager):
+    self.type_idx = manager.TypeSection.get_id(annotation.type_name)
+    self.size = len(annotation.key_name_tuples)
+    self.elements = annotation.key_name_tuples
     
   def write_byte_remain(self,stream):
     ret = 0
