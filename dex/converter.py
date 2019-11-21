@@ -230,11 +230,11 @@ class CodeItemReader(object):
     self.manager = manager
     payload_size = 0
     stream = CodeStream(code_item.insns)
-    #print('insns_size : {}'.format(code_item.insns_size))
+    print('insns_size : {}'.format(code_item.insns_size))
     insns_size = code_item.insns_size
 
     while stream.index + payload_size < insns_size:
-      #print('stream.index : {}'.format(stream.index))
+      print('stream.index : {}'.format(stream.index))
       opcode = stream.peek() & 0xff
 
       instruction = base.OpcodeFactory.from_stream(opcode, self.editor.manager, stream)
@@ -254,7 +254,7 @@ class CodeItemReader(object):
         payload_size += payload.get_size()
         instruction.payload = payload
 
-      #print(instruction)
+      print(instruction)
       self.opcodes.append(instruction)
     type_addrs = []
     if code_item.tries and False:

@@ -306,9 +306,10 @@ class Instruction23x(Instruction):
 
   def from_byte(self, stream):
     temp1 = stream.read()
-    temp2 = stream.read()
     self.AA = temp1 >> 8 & 0xff
     self.op = temp1 & 0xff
+    print("{}".format(self.get_opcode_string()))
+    temp2 = stream.read()
     self.CC = temp2 >> 8 & 0xff
     self.BB = temp2 & 0xff
         

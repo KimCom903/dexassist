@@ -27,15 +27,19 @@ class DexClassItem(object):
     return self.name
 
   def get_related_strings(self):
-    ret = []
-    OP_CONST_STRING = -1
-    ret.append(self.name)
-    ret.append(self.type)
-    editor = self.get_editor()
-    for opcode in editor.opcodes:
-      if opcode.op == OP_CONST_STRING:
-        ret.append(opcode.get_string())
-    return ret
+    ret = set()
+    OP_CONST_STRING = 0x1a
+    ret.add(self.name)
+    ret.add(self.type)
+    for x in self.methods:
+      editor = x.get_editor()
+      for opcode in editor.opcodes:
+        if opcode.op == OP_CONST_STRING:
+          ret.add(opcode.get_string())
+      return ret
+    for x in self.fields:
+      ret.add(x.type)
+
 
 class DexField(object):
   def __init__(self, parent, field_name, type_name, access_flags):
@@ -66,6 +70,15 @@ class DexMethod(object):
     self.signature = signature
     print('signature : {}'.format(signature))
     self.editor = editor
+
+  def create_proto(self):
+    pass
+
+  def create_shorty_descriptor(self):
+    return self.signature
+
+  def parse_type(self, value):
+    pass
 
   def parse_signature(self, signature):
     x = signature.split(')')
@@ -103,7 +116,7 @@ VALUE_TYPE_BYTE = 0x00
 VALUE_TYPE_SHORT = 0x02
 VALUE_TYPE_CHAR = 0x03
 VALUE_TYPE_INT = 0x04
-VALUE_TYPE_LONG 0x06
+VALUE_TYPE_LONG = 0x06
 VALUE_TYPE_FLOAT = 0x10
 VALUE_TYPE_DOUBLE = 0x11
 VALUE_TYPE_METHOD_TYPE = 0x15
@@ -168,7 +181,7 @@ class DexValue(object):
         return VALUE_TYPE_INT
       if self.value <= 0xffffffffffffffff:
         return VALUE_TYPE_LONG
-    if isinstance(self.value, unicode):
+    if isinstance(self.value, str):
       if len(self.value) == 1:
         return VALUE_TYPE_CHAR
       return VALUE_TYPE_STRING

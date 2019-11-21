@@ -1,3 +1,6 @@
+import struct
+from writer.multidex import DefaultMultiDexPolicy
+
 
 SIZE_CLASS_DEF_ITEM = 32
 SIZE_HEADER_ITEM = 112
@@ -12,7 +15,6 @@ SIZE_TYPE_ITEM = 2
 SIZE_UBYTE = 1
 SIZE_UINT = 4
 SIZE_USHORT = 2
-from writer.multidex import DefaultMultiDexPolicy
 
 class DefaultDexWriteStream(object):
   def write_stream(stream):
@@ -56,6 +58,23 @@ class StringSection(Section):
     self.string_map[value] = self.index # set id
     self.index += 1
     # write data_section
+class SectionManager(object):
+  def __init__(self):
+    self.section_map = {}
+  def get_section(self, key):
+    return self.section_map[key]
+
+  def build_string_section(self, dex_pool):
+    x = set()
+    section = StringSection()
+    for clazz in dex_pool.get_classes():
+      p = clazz.get_related_strings()
+      x.update(p)
+    x = list(x).sort()
+    for strings in x:
+      section.add_item(strings)
+
+
 
   
 class HeaderWriter(object):
@@ -103,7 +122,7 @@ class DexWriter(object):
     self.dex_class_pool = dex_class_pool
     self.multidex_policy = DefaultMultiDexPolicy()
     self.dex_pool_dict = {}
-  def calc_multidex(self):
+  def write(self, stream):
     for clazz in self.dex_class_pool:
       clazz.fix()
       index = self.multidex_policy.get_multidex_index(clazz)
@@ -111,16 +130,36 @@ class DexWriter(object):
         self.dex_pool_dict[index] = []
       self.dex_pool_dict[index].append(clazz)
     for dex_pool_index in self.dex_class_pool:
-      build_dex(self.dex_class_pool[dex_pool_index], self.write_stream)
+      stream.set_output_index(index)
+      build_dex(self.dex_class_pool[dex_pool_index], stream)
 
   def build_dex(self, dex_pool, write_stream):
-    string_table = self.get_string_table(dex_pool)
-    type_table = self.get_type_table(dex_pool)
-    proto_table = self.get_proto_table(dex_pool)
+    manager = SectionManager()
+    manager.build_string_section(dex_pool)
+    manager.build_type_section(dex_pool)
+    manager.build_proto_section(dex_pool)
+    manager.build_field_section(dex_pool)
+    manager.build_method_section(dex_pool)
+    manager.build_class_def_section(dex_pool)
+    manager.build_call_site_id_section(dex_pool) # pass, for reflection
+    manager.build_method_handle_section(dex_pool) # pass, for reflection
+    manager.build_map_list_section(dex_pool)
+    manager.build_type_list_section(dex_pool)
+    manager.build_annotation_set_ref_list_section(dex_pool)
+    manager.build_annotation_set_item(dex_pool)
+    manager.build_class_data_item_section(dex_pool)
+    manager.build_code_item_section(dex_pool)
+    manager.build_string_data_item_section(dex_pool)
+    manager.build_debug_info_item_section(dex_pool)
+    manager.build_annotation_item_section(dex_pool)
+    manager.build_encoded_array_item_section(dex_pool)
+    manager.build_annotations_directory_item_section(dex_pool)
+    manager.build_hiddenapi_class_data_item_section(dex_pool)
+    
+
     header = bytearray(SIZE_HEADER_ITEM)
 
-    
-  
+
   def get_type_table(self, dex_pool):
     type_pool = set()
     for clazz in dex_pool:
@@ -151,7 +190,7 @@ class DexWriter(object):
 
       #string_pool.update([x.get_signature() for x in clazz.fields])
       #string_pool.update([x.get_name() for x in clazz.fields])
-      string_pool.update(x.get_ref_strings())
+      string_pool.update(clazz.get_ref_strings())
     return string_pool
 
 
