@@ -20,6 +20,9 @@ def translate_operand_type(opcode):
 class Instruction(object):
   def __init__(self, manager):
     self.manager = manager
+  def initialize(self):
+    pass
+
     
   def get_typeindex_string(self, opcode, index):
     op_type = translate_operand_type(opcode)
@@ -75,7 +78,10 @@ class Instruction(object):
 
   def from_stream(self, stream):
     self.base_offset = stream.offset
-    return self.from_byte(stream)
+    ret = self.from_byte(stream)
+    self.initialize()
+    return ret
+
 
   def op_as_string(self):
     return translate_opcode(self.get_op())
@@ -282,10 +288,15 @@ class Instruction21h(Instruction22x):
 #                               proto@BBBB
 #                               string@BBBB
 class Instruction21c(Instruction22x):
+  def initialize(self):
+    self.string = ''
+    if self.op == 0x1a:
+      self.string = self.get_typeindex_string(self.get_op() ,self.BBBB)
   def as_string(self):
-    str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AA) + self.get_typeindex_string(self.get_op() ,self.BBBB)  
+    str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AA) + self.string
     return str
-
+  def get_string(self):
+    return self.string
 # AA|op CC|BB	23x	    op vAA, vBB, vCC
 class Instruction23x(Instruction):
   def as_byte_stream(self):
@@ -327,7 +338,7 @@ class Instruction22t(Instruction):
     pass
   
   def write_byte_stream(self,stream):
-    stream.write_ubyte((self.B << 4) + self.A))
+    stream.write_ubyte((self.B << 4) + self.A)
     stream.write_ubyte(self.op)
     stream.write_ushort(self.CCCC)
     return len(self)
@@ -472,11 +483,11 @@ class Instruction35c(Instruction):
     pass
   
   def write_byte_stream(self,stream):
-    stream.write_ubyte((self.A << 4) + self.G))
+    stream.write_ubyte((self.A << 4) + self.G)
     stream.write_ubyte(self.op)
     stream.write_ushort(self.BBBB)
-    stream.write_ubyte((self.F << 4) + self.E))
-    stream.write_ubyte((self.D << 4) + self.C))
+    stream.write_ubyte((self.F << 4) + self.E)
+    stream.write_ubyte((self.D << 4) + self.C)
     return len(self)
   
   def as_string(self):
@@ -579,11 +590,11 @@ class Instruction45cc(Instruction):
     pass
   
   def write_byte_stream(self,stream):
-    stream.write_ubyte((self.A << 4) + self.G))
+    stream.write_ubyte((self.A << 4) + self.G)
     stream.write_ubyte(self.op)
     stream.write_ushort(self.BBBB)
-    stream.write_ubyte((self.F << 4) + self.E))
-    stream.write_ubyte((self.D << 4) + self.C))
+    stream.write_ubyte((self.F << 4) + self.E)
+    stream.write_ubyte((self.D << 4) + self.C)
     return len(self)  
   
   def as_string(self):

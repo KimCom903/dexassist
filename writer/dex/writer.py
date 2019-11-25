@@ -1,5 +1,8 @@
 import struct
-from writer.multidex import DefaultMultiDexPolicy
+try:
+  from dexassist.writer.multidex.multidex import DefaultMultiDexPolicy
+except:
+  from writer.multidex.multidex import DefaultMultiDexPolicy
 
 
 SIZE_CLASS_DEF_ITEM = 32
@@ -16,9 +19,6 @@ SIZE_UBYTE = 1
 SIZE_UINT = 4
 SIZE_USHORT = 2
 
-class DefaultDexWriteStream(object):
-  def write_stream(stream):
-    pass
 
 class Section(object):
   def get_item(self, value):
@@ -49,10 +49,10 @@ class DataSection(Section):
     return self.last_offset
 
 class StringSection(Section):
-  def __init__(self, data_section):
+  def __init__(self, section_namager):
     self.string_map = {}
     self.index = 0
-    self.data_section = data_section
+    self.section_manager = section_namager
   def add_item(self, value):
     # decode mutf8
     self.string_map[value] = self.index # set id
@@ -66,7 +66,7 @@ class SectionManager(object):
 
   def build_string_section(self, dex_pool):
     x = set()
-    section = StringSection()
+    section = StringSection(self)
     for clazz in dex_pool.get_classes():
       p = clazz.get_related_strings()
       x.update(p)
@@ -123,17 +123,17 @@ class DexWriter(object):
     self.multidex_policy = DefaultMultiDexPolicy()
     self.dex_pool_dict = {}
   def write(self, stream):
-    for clazz in self.dex_class_pool:
+    for clazz in self.dex_class_pool.classes:
       clazz.fix()
       index = self.multidex_policy.get_multidex_index(clazz)
       if index not in self.dex_pool_dict:
         self.dex_pool_dict[index] = []
       self.dex_pool_dict[index].append(clazz)
-    for dex_pool_index in self.dex_class_pool:
+    for dex_pool_index in self.dex_pool_dict:
       stream.set_output_index(index)
-      build_dex(self.dex_class_pool[dex_pool_index], stream)
+      self.build_dex(self.dex_pool_dict[dex_pool_index], stream)
 
-  def build_dex(self, dex_pool, write_stream):
+  def build_dex(self, dex_pool, stream):
     manager = SectionManager()
     manager.build_string_section(dex_pool)
     manager.build_type_section(dex_pool)
@@ -156,8 +156,8 @@ class DexWriter(object):
     manager.build_annotations_directory_item_section(dex_pool)
     manager.build_hiddenapi_class_data_item_section(dex_pool)
     
-
     header = bytearray(SIZE_HEADER_ITEM)
+    stream.write(header)
 
 
   def get_type_table(self, dex_pool):

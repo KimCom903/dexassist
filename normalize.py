@@ -25,7 +25,11 @@ class DexClassItem(object):
     self.annotations.append(annotation)
   def __str__(self):
     return self.name
+  def fix(self):
+    pass
 
+  def get_ref_strings(self):
+    return self.get_related_strings()
   def get_related_strings(self):
     ret = set()
     OP_CONST_STRING = 0x1a
@@ -70,7 +74,8 @@ class DexMethod(object):
     self.signature = signature
     print('signature : {}'.format(signature))
     self.editor = editor
-
+  def get_editor(self):
+    return self.editor
   def create_proto(self):
     pass
 

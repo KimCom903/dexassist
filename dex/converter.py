@@ -1,7 +1,12 @@
-from dexassist import normalize
-from dexassist.dex import dex
-from dexassist.bytecodes import editor
-from dexassist.bytecodes import base
+try:
+  from dexassist import normalize
+  from dexassist.dex import dex
+  from dexassist.bytecodes import editor
+  from dexassist.bytecodes import base
+except:
+  import normalize
+  from dex import dex
+  from bytecodes import editor, base
 
 class DexConverter(object):
   def get_dex(self, header, manager):
