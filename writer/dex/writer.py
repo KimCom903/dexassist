@@ -67,10 +67,11 @@ class SectionManager(object):
   def build_string_section(self, dex_pool):
     x = set()
     section = StringSection(self)
-    for clazz in dex_pool.get_classes():
+    for clazz in dex_pool:
       p = clazz.get_related_strings()
       x.update(p)
-    x = list(x).sort()
+    x = list(x)
+    x.sort()
     for strings in x:
       section.add_item(strings)
 

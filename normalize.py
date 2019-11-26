@@ -40,10 +40,9 @@ class DexClassItem(object):
       for opcode in editor.opcodes:
         if opcode.op == OP_CONST_STRING:
           ret.add(opcode.get_string())
-      return ret
     for x in self.fields:
       ret.add(x.type)
-
+    return ret
 
 class DexField(object):
   def __init__(self, parent, field_name, type_name, access_flags):
