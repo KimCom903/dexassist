@@ -19,7 +19,8 @@ SIZE_UBYTE = 1
 SIZE_UINT = 4
 SIZE_USHORT = 2
 
-
+SECTION_STRING = 1
+SECTION_TYPE = 2
 class Section(object):
   def get_item(self, value):
     """
@@ -74,10 +75,119 @@ class SectionManager(object):
     x.sort()
     for strings in x:
       section.add_item(strings)
+    self.section_map[SECTION_STRING] = section
+  def build_type_section(self, dex_pool):
+    section = TypeSection(self)
+    type_list = set()
+    for clazz in dex_pool:
+      type_list.add(clazz.type)
+      for field in clazz.fields:
+        type_list.add(field.type)
+      for method in clazz.methods:
+        type_list.add(method.type)
+    x = list(type_list)
+    x.sort()
+    for types in x:
+      section.add_item(types)
+    self.section_map[SECTION_TYPE] = section
+  def build_proto_section(self, dex_pool):
+    section = ProtoSection(self)
+    proto_list = set()
+    for clazz in dex_pool:
+      for method in clazz.methods:
+        proto_list.add(method.signature)
+    x = list(proto_list)
+    x.sort()
+    for protos in x:
+      section.add_item(protos)
+    self.section_map[SECTION_PROTO] = section
 
-
-
+  def build_field_section(self, dex_pool):
+    section = FieldSection(self)
+    field_list = set()
+    for clazz in dex_pool:
+      for field in clazz.fields:
+        field_list.add(field)
+    x = list(field_list)
+    for field in x:
+      section.add_item(field)
+    self.section_map[SECTION_FIELD] = section
   
+  def build_method_section(self, dex_pool):
+    section = MethodSection(self)
+    method_list = set()
+    for clazz in dex_pool:
+      for method in clazz.methods:
+        method_list.add(method)
+    x = list(method_list)
+    for method in x:
+      section.add_item(method)
+    self.section_map[SECTION_METHOD] = section
+
+  def get_data_section_offset(self):
+    ret = 0x70 # header_item_size
+    ret += self.get_section[SECTION_STRING].get_item_count() * STRING_ID_ITEM_SIZE
+    ret += self.get_section[SECTION_TYPE].get_item_count() * TYPE_ID_ITEM_SIZE
+    ret += self.get_section[SECTION_PROTO].get_item_count() * PROTO_ID_ITEM_SIZE
+    ret += self.get_section[SECTION_FIELD].get_item_count() * FIELD_ID_ITEM_SIZE
+    ret += self.get_section[SECTION_METHOD].get_item_count() * METHOD_ID_ITEM_SIZE
+    ret += self.get_section[SECTION_CLASS_DEF].get_item_count() * CLASS_DEF_ITEM_SIZE
+    ret += self.get_section[SECTION_CALL_SITE].get_item_count() * CALL_SITE_ID_ITEM_SIZE
+    ret += self.get_section[SECTION_METHOD_HANDLE].get_item_count() * METHOD_HANDLE_ITEM_SIZE
+    return ret
+  
+  def build_class_def_section(self, dex_pool):
+    section = ClassDefSection(self)
+    clazz_list = set()
+    for clazz in dex_pool:
+      clazz_list.add(clazz)
+    for clazz in clazz_list:
+      section.add_item(clazz)
+    self.section_map[SECTION_CLASS_DEF] = section
+  
+  def build_call_site_id_section(self, dex_pool): # pass, for reflection
+    pass
+
+  def build_method_handle_section(self, dex_pool): # pass, for reflection
+    pass
+
+  def build_map_list_section(self, dex_pool):
+    pass
+
+  def build_type_list_section(self, dex_pool):
+    pass
+
+  def build_annotation_set_ref_list_section(self, dex_pool):
+    pass
+
+  def build_annotation_set_item(self, dex_pool):
+    pass
+
+  def build_class_data_item_section(self, dex_pool):
+    pass
+
+  def build_code_item_section(self, dex_pool):
+    pass
+
+  def build_string_data_item_section(self, dex_pool):
+    pass
+
+
+  def build_debug_info_item_section(self, dex_pool):
+    pass
+
+  def build_annotation_item_section(self, dex_pool):
+    pass
+
+  def build_encoded_array_item_section(self, dex_pool):
+    pass
+
+  def build_annotations_directory_item_section(self, dex_pool):
+    pass
+
+  def build_hiddenapi_class_data_item_section(self, dex_pool): # pass, for reflection
+    pass
+
 class HeaderWriter(object):
   def __init__(self):
     self.buf = bytearray(SIZE_HEADER_ITEM)
@@ -156,11 +266,67 @@ class DexWriter(object):
     manager.build_encoded_array_item_section(dex_pool)
     manager.build_annotations_directory_item_section(dex_pool)
     manager.build_hiddenapi_class_data_item_section(dex_pool)
+    data_section_offset = manager.get_data_section_offset()
+    buf = bytearray()
+    header_writer = OutputStream(buf, 0)
+    index_writer = OutputStream(buf, HEADER_SIZE)
+    offset_writer = OutputStream(buf, data_section_offset)
     
-    header = bytearray(SIZE_HEADER_ITEM)
-    stream.write(header)
+    self.write_strings(index_writer, offset_writer)
+    self.write_types(index_writer)
+    self.write_type_lists(offset_writer)
+    self.write_protos(index_writer)
+    self.write_fields(index_writer)
+    self.write_methods(index_writer)
 
+    method_handle_writer = OutputStream(buf, index_writer.get_position() + 
+      manager.get_section(SECTION_CLASS_DEF).get_item_count() * CLASS_DEF_ITEM_SIZE +
+      manager.get_section(SECTION_CALL_SITE).get_item_count() * CALL_SITE_ITEM_SIZE
+    )
 
+    self.write_method_handles(method_handle_writer)
+    method_handle_writer.close()
+
+    self.write_encoded_arrays(offset_writer)
+    call_site_writer = OutputStream(buf, index_writer.get_position() + 
+      manager.get_section(SECTION_CLASS_DEF).get_item_count() * CLASS_DEF_ITEM_SIZE)
+    self.write_call_sites(call_site_writer)
+    call_site_writer.close()
+
+    self.write_annotations(offset_writer)
+    self.write_annotation_sets(offset_writer)
+    self.write_annotation_set_refs(offset_writer)
+    self.write_annotation_directories(offset_writer)
+    self.write_debug_and_code_items(offset_writer, DeferredOutputStream())
+    self.write_classes(index_writer, offset_writer)
+    self.write_map_item(offset_writer)
+    self.write_header(header_writer, data_section_offset, offset_writer.get_position())
+
+    header_writer.close()
+    index_writer.close()
+    offset_writer.close()
+
+    self.update_signature(buf)
+    self.update_check_sum(buf)
+
+  def write_strings(self, index_writer, offset_writer):
+    index_section_offset = index_writer.get_position()
+    data_section_offset = offset_writer.get_position()
+    index = 0
+    for item in self.get_section[SECTION_STRING].get_items():
+      index_writer.write_int(offset_writer.get_position())
+      string_val = item.get_value()
+      offset_writer.write_uleb128(len(string_val))
+      offset_writer.write_string(string_val)
+      offset_writer.write(0)
+
+  def write_types(self, index_writer):
+    type_section_offset = index_writer.get_position()
+    for item in self.get_section[SECTION_TYPE].get_items():
+      index_writer.write_int(self.get_section[SECTION_STRING].get_item_index(
+        item.get_value()
+      ))
+  
   def get_type_table(self, dex_pool):
     type_pool = set()
     for clazz in dex_pool:
