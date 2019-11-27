@@ -59,6 +59,8 @@ class StringSection(Section):
     self.string_map[value] = self.index # set id
     self.index += 1
     # write data_section
+
+
 class SectionManager(object):
   def __init__(self):
     self.section_map = {}
@@ -187,7 +189,7 @@ class SectionManager(object):
 
   def build_hiddenapi_class_data_item_section(self, dex_pool): # pass, for reflection
     pass
-
+  
 class HeaderWriter(object):
   def __init__(self):
     self.buf = bytearray(SIZE_HEADER_ITEM)
@@ -326,7 +328,21 @@ class DexWriter(object):
       index_writer.write_int(self.get_section[SECTION_STRING].get_item_index(
         item.get_value()
       ))
-  
+  def write_debug_and_code_items(self, offset_writer, deferred_stream):
+    ehbuf = ByteArrayStream()
+    debug_section_offset = offset_writer.get_position()
+    # pass write debug section!
+    code_writer = OutputStream(deferred_stream, 0)
+    code_offsets = []
+    for clazz in self.get_section[SECTION_CLASS_DEF].get_items():
+      direct_methods = clazz.get_direct_methods()
+      virtual_methods = clazz.get_virtual_methods()
+      for method in direct_methods + virtual_methods:
+        try_blocks = method.get_try_blocks()
+        instructions = method.get_instructions()
+        #debug_items = method.get_debug_items()
+
+
   def get_type_table(self, dex_pool):
     type_pool = set()
     for clazz in dex_pool:
