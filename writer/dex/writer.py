@@ -6,30 +6,37 @@ except:
   from writer.multidex.multidex import DefaultMultiDexPolicy
   from writer.dex.section import *
 
+from util import InstructionUtil
+
 NO_INDEX = -1
 NO_OFFSET = 0
 
+INSTRUCT_TYPE_METHOD = 2
+
+LITTLE_ENDIAN_TAG = 0x12345678
 # item type
-HEADER_ITEM = 1
-STRING_ID_ITEM = 1
-TYPE_ID_ITEM = 1
-PROTO_ID_ITEM = 1
-FIELD_ID_ITEM = 1
-METHOD_ID_ITEM = 1
-CLASS_DEF_ITEM = 1
-CALL_SITE_ID_ITEM = 1
-METHOD_HANDLE_ITEM = 1
-STRING_DATA_ITEM = 1
-TYPE_LIST = 1
-ENCODED_ARRAY_ITEM = 1
-ANNOTATION_ITEM = 1
-ANNOTATION_SET_ITEM = 1
-ANNOTATION_SET_REF_LIST = 1
-ANNOTATION_DIRECTORY_ITEM = 1
-DEBUG_INFO_ITEM = 1
-CODE_ITEM = 1
-CLASS_DATA_ITEM = 1
-MAP_LIST = 1
+HEADER_ITEM = 0x0000
+STRING_ID_ITEM = 0x0001
+TYPE_ID_ITEM = 0x0002
+PROTO_ID_ITEM = 0x0003
+FIELD_ID_ITEM = 0x0004
+METHOD_ID_ITEM = 0x0005
+CLASS_DEF_ITEM = 0x0006
+CALL_SITE_ID_ITEM = 0x0007
+METHOD_HANDLE_ITEM = 0x0008
+MAP_LIST = 0x1000
+TYPE_LIST = 0x1001
+ANNOTATION_SET_REF_LIST = 0x1002
+ANNOTATION_SET_ITEM = 0x1003
+CLASS_DATA_ITEM = 0x2000
+CODE_ITEM = 0x2001
+STRING_DATA_ITEM = 0x2002
+DEBUG_INFO_ITEM = 0x2003
+ANNOTATION_ITEM = 0x2004
+ENCODED_ARRAY_ITEM = 0x2005
+ANNOTATION_DIRECTORY_ITEM = 0x2006
+HIDDENAPI_CLASS_DATA_ITEM = 0xf000
+
 
 SIZE_CLASS_DEF_ITEM = 32
 SIZE_HEADER_ITEM = 112
@@ -44,6 +51,32 @@ SIZE_TYPE_ITEM = 2
 SIZE_UBYTE = 1
 SIZE_UINT = 4
 SIZE_USHORT = 2
+
+
+
+STRING_ID_ITEM_SIZE = 4
+TYPE_ID_ITEM_SIZE = 4
+PROTO_ID_ITEM_SIZE = 4 + 4 + 4
+FIELD_ID_ITEM_SIZE = 2 + 2 + 4
+METHOD_ID_ITEM_SIZE = 2 + 2 + 4
+CLASS_DEF_ITEM_SIZE = 4 + 4 + 4 + 4 + 4 + 4 + 4 + 4
+CALL_SITE_ID_ITEM_SIZE = 4
+METHOD_HANDLE_ITEM_SIZE = 2 + 2 + 2 + 2
+
+
+def get_method_register_count(method):
+  return get_parameter_register_count(method.parameters, method.is_static())
+  
+def get_parameter_register_count(parameters, is_static):
+
+  reg_count = 0
+  for param_type in parameters:
+    reg_count += 1
+    if param_type[0] in ['J', 'D']:
+      reg_count += 1
+
+  if not is_static: reg_count += 1
+  return reg_count
 
 class SectionManager(object):
   def __init__(self):
@@ -114,24 +147,24 @@ class SectionManager(object):
 
   def get_data_section_offset(self):
     ret = 0x70 # header_item_size
-    ret += self.get_section[SECTION_STRING].get_item_count() * STRING_ID_ITEM_SIZE
-    ret += self.get_section[SECTION_TYPE].get_item_count() * TYPE_ID_ITEM_SIZE
-    ret += self.get_section[SECTION_PROTO].get_item_count() * PROTO_ID_ITEM_SIZE
-    ret += self.get_section[SECTION_FIELD].get_item_count() * FIELD_ID_ITEM_SIZE
-    ret += self.get_section[SECTION_METHOD].get_item_count() * METHOD_ID_ITEM_SIZE
-    ret += self.get_section[SECTION_CLASS_DEF].get_item_count() * CLASS_DEF_ITEM_SIZE
-    ret += self.get_section[SECTION_CALL_SITE].get_item_count() * CALL_SITE_ID_ITEM_SIZE
-    ret += self.get_section[SECTION_METHOD_HANDLE].get_item_count() * METHOD_HANDLE_ITEM_SIZE
+    ret += self.get_section(SECTION_STRING).get_item_count() * STRING_ID_ITEM_SIZE
+    ret += self.get_section(SECTION_TYPE).get_item_count() * TYPE_ID_ITEM_SIZE
+    ret += self.get_section(SECTION_PROTO).get_item_count() * PROTO_ID_ITEM_SIZE
+    ret += self.get_section(SECTION_FIELD).get_item_count() * FIELD_ID_ITEM_SIZE
+    ret += self.get_section(SECTION_METHOD).get_item_count() * METHOD_ID_ITEM_SIZE
+    ret += self.get_section(SECTION_CLASS).get_item_count() * CLASS_DEF_ITEM_SIZE
+    ret += self.get_section(SECTION_CALL_SITE).get_item_count() * CALL_SITE_ID_ITEM_SIZE
+    ret += self.get_section(SECTION_METHOD_HANDLE).get_item_count() * METHOD_HANDLE_ITEM_SIZE
     return ret
   
   def build_class_def_section(self, dex_pool):
-    section = ClassDefSection(self)
+    section = ClassSection(self)
     clazz_list = set()
     for clazz in dex_pool:
       clazz_list.add(clazz)
     for clazz in clazz_list:
       section.add_item(clazz)
-    self.section_map[SECTION_CLASS_DEF] = section
+    self.section_map[SECTION_CLASS] = section
   
   def build_call_site_id_section(self, dex_pool): # pass, for reflection
     pass
@@ -176,53 +209,38 @@ class SectionManager(object):
   def build_hiddenapi_class_data_item_section(self, dex_pool): # pass, for reflection
     pass
   
-class HeaderWriter(object):
-  def __init__(self):
-    self.buf = bytearray(SIZE_HEADER_ITEM)
-    buf[0] = 0x64 # d
-    buf[1] = 0x65 # e
-    buf[2] = 0x78 # x
-    buf[3] = 0x0a # \n
-    buf[4] = 0x30 # 0
-    buf[5] = 0x33 # 3
-    buf[6] = 0x35 # 5
-    buf[7] = 0x00 # \0
-  def set_dex_verison(self, version_int):
-    if version_int == 35:
-      self.buf[6] = 0x35
-    if version_int == 37:
-      self.buf[6] = 0x37
-    if version_int == 38:
-      self.buf[6] = 0x38
-    if version_int == 39:
-      self.buf[6] = 0x39
-    return
-  def write_checksum(self, checksum):
-    self.write_array(8, checksum)
-  def write_signature(self, signature):
-    self.write_array(12, signature)
-  def write_file_size(self, file_size):
-    self.write_array(32, file_size)
-  def write_header_size(self):
-    self.write_int(36, 0x70)
-  def write_endian_tab(self, endian_tag = 0x12345678):
-    self.write_int(40, endian_tag)
-  def write_section(self, section):
-    section_header_size_offset = section.get_header_size_offset()
-    section_header_offset_offset = section.get_header_offset_offset()
-  
-
-  def write_array(self, start_offset, value):
-    pass
-  def write_uint(self, start_offset, value):
-    self.write_array(start_offset, struct.unpack('I', value)[0])
-
 
 class DexWriter(object):
   def __init__(self, dex_class_pool):
     self.dex_class_pool = dex_class_pool
     self.multidex_policy = DefaultMultiDexPolicy()
     self.dex_pool_dict = {}
+    self.string_index_section_offset = NO_OFFSET
+    self.type_section_offset = NO_OFFSET
+    self.proto_section_offset = NO_OFFSET
+    self.field_section_offset = NO_OFFSET
+    self.method_section_offset = NO_OFFSET
+    self.class_index_section_offset = NO_OFFSET
+    self.call_site_section_offset = NO_OFFSET
+    self.method_handle_section_offset = NO_OFFSET
+
+    self.string_data_section_offset = NO_OFFSET
+    self.class_data_section_offset = NO_OFFSET
+    self.type_list_section_offset = NO_OFFSET
+    self.encoded_array_section_offset = NO_OFFSET
+    self.annotation_section_offset = NO_OFFSET
+    self.annotation_set_section_offset = NO_OFFSET
+    self.annotation_set_ref_section_offset = NO_OFFSET
+    self.annotation_directory_section_offset = NO_OFFSET
+    self.debug_section_offset = NO_OFFSET
+    self.code_section_offset = NO_OFFSET
+    self.map_section_offset = NO_OFFSET
+
+    self.num_annotation_set_ref_items = 0
+    self.num_annotation_directory_items = 0
+    self.num_debug_info_items = 0
+    self.num_code_items = 0
+    self.num_class_data_items = 0
   def write(self, stream):
     for clazz in self.dex_class_pool.classes:
       clazz.fix()
@@ -259,7 +277,7 @@ class DexWriter(object):
     data_section_offset = manager.get_data_section_offset()
     buf = bytearray()
     header_writer = OutputStream(buf, 0)
-    index_writer = OutputStream(buf, HEADER_SIZE)
+    index_writer = OutputStream(buf, SIZE_HEADER_ITEM)
     offset_writer = OutputStream(buf, data_section_offset)
     
     self.write_strings(index_writer, offset_writer)
@@ -270,8 +288,8 @@ class DexWriter(object):
     self.write_methods(index_writer)
 
     method_handle_writer = OutputStream(buf, index_writer.get_position() + 
-      manager.get_section(SECTION_CLASS_DEF).get_item_count() * CLASS_DEF_ITEM_SIZE +
-      manager.get_section(SECTION_CALL_SITE).get_item_count() * CALL_SITE_ITEM_SIZE
+      manager.get_section(SECTION_CLASS).get_item_count() * CLASS_DEF_ITEM_SIZE +
+      manager.get_section(SECTION_CALL_SITE).get_item_count() * CALL_SITE_ID_ITEM_SIZE
     )
 
     self.write_method_handles(method_handle_writer)
@@ -279,14 +297,14 @@ class DexWriter(object):
 
     self.write_encoded_arrays(offset_writer)
     call_site_writer = OutputStream(buf, index_writer.get_position() + 
-      manager.get_section(SECTION_CLASS_DEF).get_item_count() * CLASS_DEF_ITEM_SIZE)
+      manager.get_section(SECTION_CLASS).get_item_count() * CLASS_DEF_ITEM_SIZE)
     self.write_call_sites(call_site_writer)
     call_site_writer.close()
 
     self.write_annotations(offset_writer)
     self.write_annotation_sets(offset_writer)
-    self.write_annotation_set_refs(offset_writer)
-    self.write_annotation_directories(offset_writer)
+    self.write_annotation_set_refs(offset_writer, dex_pool)
+    self.write_annotation_directories(offset_writer, dex_pool)
     self.write_debug_and_code_items(offset_writer, DeferredOutputStream())
     self.write_classes(index_writer, offset_writer)
     self.write_map_item(offset_writer)
@@ -296,14 +314,15 @@ class DexWriter(object):
     index_writer.close()
     offset_writer.close()
 
-    self.update_signature(buf)
-    self.update_check_sum(buf)
+    #self.update_signature(buf)
+    #self.update_check_sum(buf)
+  def get_section(self, key):
+    return self.manager.get_section(key)
 
   def write_strings(self, index_writer, offset_writer):
-    index_section_offset = index_writer.get_position()
-    data_section_offset = offset_writer.get_position()
-    index = 0
-    for item in self.get_section[SECTION_STRING].get_items():
+    self.string_index_section_offset = index_writer.get_position()
+    self.string_data_section_offset = offset_writer.get_position()
+    for item in self.get_section(SECTION_STRING).get_items():
       index_writer.write_int(offset_writer.get_position())
       string_val = item.get_value()
       offset_writer.write_uleb128(len(string_val))
@@ -311,9 +330,9 @@ class DexWriter(object):
       offset_writer.write(0)
 
   def write_types(self, index_writer):
-    type_section_offset = index_writer.get_position()
-    for item in self.get_section[SECTION_TYPE].get_items():
-      index_writer.write_int(self.get_section[SECTION_STRING].get_item_index(
+    self.type_section_offset = index_writer.get_position()
+    for item in self.get_section(SECTION_TYPE).get_items():
+      index_writer.write_int(self.get_section(SECTION_STRING).get_item_index(
         item.get_value()
       ))
 
@@ -323,7 +342,7 @@ class DexWriter(object):
     # pass write debug section!
     code_writer = OutputStream(deferred_stream, 0)
     code_offsets = []
-    for clazz in self.get_section[SECTION_CLASS_DEF].get_items():
+    for clazz in self.get_section(SECTION_CLASS).get_items():
       direct_methods = clazz.get_direct_methods()
       virtual_methods = clazz.get_virtual_methods()
       for method in direct_methods + virtual_methods:
@@ -340,42 +359,43 @@ class DexWriter(object):
           #code_offsets.append(CodeItemOffset(method, code_item_offset))
     
     offset_writer.align()
-    code_section_offset = offset_writer.get_position()
+    self.code_section_offset = offset_writer.get_position()
     code_writer.close()
     deferred_stream.write_to(offset_writer)
     deferred_stream.close()
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
-    num_code_items += 1
+    self.num_code_items += 1
     code_writer.align()
     code_item_offset = code_writer.get_position()
-    code_writer.write_ushort(method.get_register_count())
+    code_writer.write_ushort(get_method_register_count(method))
     is_static = method.is_static()
     params = self.get_section(SECTION_TYPE_LIST).get_types(
       self.get_section(SECTION_PROTO).get_parameters(method.proto)
     )
     code_writer.write_ushort(
-      self.get_param_register_count(params, is_static)
+      get_parameter_register_count(params, is_static)
     )
-    if istructions is None:
+    if instructions is None:
       code_writer.write_ushort(0)
       code_writer.write_ushort(0)
       code_writer.write_int(debug_item_offset)
       code_writer.write_int(0)
       return code_item_offset
-    try_blocks = TryListBuilder.massage_try_blocks(try_blocks)
+    #try_blocks = TryListBuilder.massage_try_blocks(try_blocks)
     out_param_count = 0
     code_unit_count = 0
     param_count = 0
     for ins in instructions:
       code_unit_count += ins.get_code_units()
-      if ins.ref_type == ReferenceType.METHOD:
+      if ins.ref_type == INSTRUCT_TYPE_METHOD:
         method_ref = ins.ref
         opcode = ins.get_op()
         if InstructionUtil.is_invoke_polymorphic(opcode):
           param_count = ins.get_register_count()
         else:
-          param_count = self.get_param_register_count(method_ref, InstructionUtil.is_invoke_static(opcode))
+          param_count = get_method_register_count(method_ref)
+          #param_count = self.get_param_register_count(method_ref, InstructionUtil.is_invoke_static(opcode))
 
         if param_count > out_param_count: out_param_count = param_count
 
@@ -383,9 +403,9 @@ class DexWriter(object):
     code_writer.write_ushort(len(try_blocks))
     code_writer.write_int(debug_item_offset)
 
-    ins_writer = InstructionWriter.make_ins_writer(opcodes, code_writer, self.get_section(SECTION_STRING),
+    ins_writer = InstructionWriter.make_ins_writer(instructions, code_writer, self.get_section(SECTION_STRING),
     self.get_section(SECTION_TYPE),
-    self.get_seciton(SECTION_FIELD),
+    self.get_section(SECTION_FIELD),
     self.get_section(SECTION_METHOD),
     self.get_section(SECTION_PROTO),
     self.get_section(SECTION_METHOD_HANDLE),
@@ -407,12 +427,8 @@ class DexWriter(object):
     DataWriter.write_uleb128(ehbuf, len(handler_map))
 
     for try_block in try_blocks:
-      start_addr = try_block.get_start_addr()
-      code_count = try_block.get_code_count()
-      end_addr = start_addr + code_count
-
-      code_writer.write_int(start_addr)
-      code_writer.write_ushort(code_count)
+      code_writer.write_int(try_block.get_start_addr())
+      code_writer.write_ushort(try_block.get_code_count())
 
       if len(try_block.get_exception_handlers()) == 0:
         raise Exception("try block has no exception handlers")
@@ -421,7 +437,7 @@ class DexWriter(object):
       if offset == 0:
         offset = ehbuf.get_position()
         handler_map[try_block.get_exception_handlers()] = offset
-      writer.write_ushort(offset)
+      code_writer.write_ushort(offset)
 
       eh_size = len(try_block.get_exception_handlers())
       eh_last = try_block.get_exception_handlers()[-1]
@@ -468,32 +484,32 @@ class DexWriter(object):
 
   def write_map_item(self, offset_writer):
     offset_writer.align()
-    map_section_offset = offset_writer.get_position()
+    self.map_section_offset = offset_writer.get_position()
     num_items = self.calc_map_list_item_count()
     offset_writer.write_int(num_items)
 
     self.write_map_item_object(offset_writer, HEADER_ITEM, 1, 0)
     self.write_map_item_object(offset_writer, STRING_ID_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, TYPE_ID_ITEM, self.get_section(SECTION_TYPE).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, PROTO_ID_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, FIELD_ID_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, METHOD_ID_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, CLASS_DEF_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, CALL_SITE_ID_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, METHOD_HANDLE_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
+    self.write_map_item_object(offset_writer, TYPE_ID_ITEM, self.get_section(SECTION_TYPE).size(), self.type_section_offset)
+    self.write_map_item_object(offset_writer, PROTO_ID_ITEM, self.get_section(SECTION_PROTO).size(), self.proto_section_offset)
+    self.write_map_item_object(offset_writer, FIELD_ID_ITEM, self.get_section(SECTION_FIELD).size(), self.field_section_offset)
+    self.write_map_item_object(offset_writer, METHOD_ID_ITEM, self.get_section(SECTION_METHOD).size(), self.method_section_offset)
+    self.write_map_item_object(offset_writer, CLASS_DEF_ITEM, self.get_section(SECTION_CLASS).size(), self.class_index_section_offset)
+    self.write_map_item_object(offset_writer, CALL_SITE_ID_ITEM, self.get_section(SECTION_CALL_SITE).size(), self.call_site_section_offset)
+    self.write_map_item_object(offset_writer, METHOD_HANDLE_ITEM, self.get_section(SECTION_METHOD_HANDLE).size(), self.method_handle_section_offset)
 
     # data section
-    self.write_map_item_object(offset_writer, STRING_DATA_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, TYPE_LIST, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, ENCODED_ARRAY_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, ANNOTATION_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, ANNOTATION_SET_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, ANNOTATION_SET_REF_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, ANNOTATION_DIRECTORY_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, DEBUG_INFO_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, CODE_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, CLASS_DATA_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
-    self.write_map_item_object(offset_writer, MAP_LIST, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
+    self.write_map_item_object(offset_writer, STRING_DATA_ITEM, self.get_section(SECTION_STRING).size(), self.string_data_section_offset)
+    self.write_map_item_object(offset_writer, TYPE_LIST, self.get_section(SECTION_TYPE_LIST).size(), self.type_list_section_offset)
+    self.write_map_item_object(offset_writer, ENCODED_ARRAY_ITEM, self.get_section(SECTION_ENCODED_ARRAY).size(), self.encoded_array_section_offset)
+    self.write_map_item_object(offset_writer, ANNOTATION_ITEM, self.get_section(SECTION_ANNOTATION).size(), self.annotation_section_offset)
+    self.write_map_item_object(offset_writer, ANNOTATION_SET_ITEM, self.get_section(SECTION_ANNOTATION_SET).size(), self.annotation_set_section_offset)
+    self.write_map_item_object(offset_writer, ANNOTATION_SET_REF_LIST, self.get_section(SECTION_ANNOTATION_SET_REF).size(), self.annotation_set_ref_section_offset)
+    self.write_map_item_object(offset_writer, ANNOTATION_DIRECTORY_ITEM, self.get_section(SECTION_ANNOTATION_DIRECTORY).size(), self.annotation_directory_section_offset)
+    self.write_map_item_object(offset_writer, DEBUG_INFO_ITEM, self.get_section(SECTION_DEBUG).size(), self.debug_section_offset)
+    self.write_map_item_object(offset_writer, CODE_ITEM, self.get_section(SECTION_CODE).size(), self.code_section_offset)
+    self.write_map_item_object(offset_writer, CLASS_DATA_ITEM, self.get_section(SECTION_CLASS_DATA).size(), self.class_data_section_offset)
+    self.write_map_item_object(offset_writer, MAP_LIST, 1, self.map_section_offset)
 
   def write_map_item_object(self, offset_writer, item_type, size, offset):
     if size > 0:
@@ -515,7 +531,7 @@ class DexWriter(object):
         writer.write_ushort(self.get_section(SECTION_TYPE_LIST).get_item_index(item))
 
 
-  def write_protos(self):
+  def write_protos(self, writer):
     self.proto_section_offset = writer.position
     index = 0
     for item in self.get_section(SECTION_PROTO).get_items():
@@ -561,7 +577,7 @@ class DexWriter(object):
       x.index = index
       index += 1
       writer.write_ushort(type_section.get_item_index(x.clazz.type))
-      writer.write_ushort(proto_Section.get_item_index(x.proto))
+      writer.write_ushort(proto_section.get_item_index(x.proto))
       writer.write_int(string_section.get_item_index(x.name))
 
     
@@ -575,7 +591,7 @@ class DexWriter(object):
       index = self.write_class(index_writer, offset_writer, index, x)
 
   def write_class(self, index_writer, offset_writer, index, clazz):
-    if clazz in None: return index # not in dex
+    if clazz is None: return index # not in dex
     if clazz.index != NO_INDEX: return index # writed
 
     clazz.index = 0
@@ -644,12 +660,12 @@ class DexWriter(object):
     method_section = self.get_section(SECTION_METHOD)
     for method in method_list:
       index = method_section.get_item_index(method)
-      writer.write_uleb128(index - prev_index)
-      writer.write_uleb128(method.access_flags)
-      writer.write_uleb128(method.code_item_offset)
+      offset_writer.write_uleb128(index - prev_index)
+      offset_writer.write_uleb128(method.access_flags)
+      offset_writer.write_uleb128(method.code_item_offset)
       prev_index = index
 
-  def write_call_sites(self):
+  def write_call_sites(self, writer):
     pass # skip
 
   def write_method_handles(self):
@@ -671,7 +687,7 @@ class DexWriter(object):
 
   def write_annotations(self, writer):
     self.annotation_section_offset = writer.position
-    annotation_section = self.get_seciton(SECTION_ANNOTATION)
+    annotation_section = self.get_section(SECTION_ANNOTATION)
     type_section = self.get_section(SECTION_TYPE)
     string_section = self.get_section(SECTION_STRING)
     for ann in annotation_section.get_items():
@@ -791,18 +807,19 @@ class DexWriter(object):
   def write_encoded_value(self, writer, val):
     writer.write(val.as_byte())
 
-
+  def get_magic(self, api_level):
+    return 'DEX\n035' + '\x00'
   def write_header(self, writer, data_offset, file_size):
-    writer.write(self.get_magic(opcodes.api))
+    writer.write(self.get_magic("opcodes.api"))
     writer.write_int(0) # checksum
     writer.write_arrays(bytearray(20))
 
     writer.write_int(file_size)
-    writer.write_int(HEADER_SIZE)
+    writer.write_int(SIZE_HEADER_ITEM)
     writer.write_int(LITTLE_ENDIAN_TAG)
 
     writer.write_int(0) # link
-    writer.write(int(0) # link
+    writer.write_int(0) # link
 
     writer.write_int(self.map_section_offset)
 
@@ -811,10 +828,10 @@ class DexWriter(object):
     self.write_section_info(writer, self.get_section(SECTION_PROTO).size(), self.proto_section_offset)
     self.write_section_info(writer, self.get_section(SECTION_FIELD).size(), self.field_section_offset)
     self.write_section_info(writer, self.get_section(SECTION_METHOD).size(), self.method_section_offset)
-    self.write_section_info(writer, self.get_section(SECTION_CLASS).size(), self.class_section_offset)
+    self.write_section_info(writer, self.get_section(SECTION_CLASS).size(), self.class_index_section_offset)
 
-    writer.write_int(file_size - self.data_offset)
-    writer.write_int(self.data_offset)
+    writer.write_int(file_size - data_offset)
+    writer.write_int(data_offset)
 
   def write_section_info(self, writer, num_items, offset):
     writer.write_int(num_items)
