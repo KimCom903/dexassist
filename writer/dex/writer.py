@@ -733,8 +733,63 @@ class DexWriter(object):
           
     
 
-  def write_annotation_directories(self):
-    pass
+  def write_annotation_directories(self, writer, dex_buf):
+    writer.align()
+    self.annotation_directory_section_offset = writer.position
+    interned = {}
+    tmp_buffer = bytearray(65536) # little endian
+    field_section = self.get_section(SECTION_FIELD)
+    method_section = self.get_section(SECTION_METHOD)
+    annotation_set_section = self.get_section(SECTION_ANNOTATION_SET)
+
+    for clazz in dex_buf:
+      max_size = len(clazz.fields) * 8 + len(clazz.methods) * 16
+      if max_size > 65536:
+        tmp_buffer = bytearray(max_size)
+      
+      tmp_buffer = BufferStream(tmp_buffer)
+      field_annotations = 0
+      method_annotations = 0
+      param_annotations = 0
+      for field in clazz.fields:
+        if field.annotations:
+          field_annotations += 1
+          tmp_buffer.write_int(field_section.get_item_index(field))
+          tmp_buffer.write_int(field.annotations.offset)
+          
+      for method in clazz.methods:
+        if method.annotations:
+          method_annotations += 1
+          tmp_buffer.write_int(method_section.get_item_index(method))
+          tmp_buffer.write_int(method.annotations.offset)
+      
+      for method in clazz.methods:
+        if method.annotation_set_ref_list_offset != NO_OFFSET:
+          param_annotations += 1
+          tmp_buffer.write_int(method_section.get_item_index(method))
+          tmp_buffer.write_int(method.annotation_set_ref_list_offset)
+      
+      if field_annotations == 0 and method_annotations == 0 and param_annotations == 0:
+        if clazz.annotations:
+          dir_offset = interned.get(clazz.annotations, None)
+          if dir_offset:
+            clazz.annotation_dir_offset = dir_offset
+            continue
+          else:
+            interned[clazz.annotations] = writer.position
+        else:
+          continue
+      
+      self.num_annotation_directory_items += 1
+      clazz.annotation_dir_offset = writer.position
+      writer.write_int(clazz.annotations.offset)
+      writer.write_int(field_annotations)
+      writer.write_int(method_annotations)
+      writer.write_int(param_annotations)
+      writer.write(tmp_buffer.buf[0:tmp_buffer.position])
+
+  def write_encoded_value(self, writer, val):
+    writer.write(val.as_byte())
 
 
   def write_header(self, writer, data_offset, file_size):
