@@ -212,6 +212,7 @@ class SectionManager(object):
 
 class DexWriter(object):
   def __init__(self, dex_class_pool):
+    self.manager = SectionManager()
     self.dex_class_pool = dex_class_pool
     self.multidex_policy = DefaultMultiDexPolicy()
     self.dex_pool_dict = {}
@@ -253,7 +254,7 @@ class DexWriter(object):
       self.build_dex(self.dex_pool_dict[dex_pool_index], stream)
 
   def build_dex(self, dex_pool, stream):
-    manager = SectionManager()
+    manager = self.manager
     manager.build_string_section(dex_pool)
     manager.build_type_section(dex_pool)
     manager.build_proto_section(dex_pool)
@@ -338,10 +339,9 @@ class DexWriter(object):
 
   def write_debug_and_code_items(self, offset_writer, deferred_stream):
     ehbuf = ByteArrayStream()
-    debug_section_offset = offset_writer.get_position()
+    self.debug_section_offset = offset_writer.get_position()
     # pass write debug section!
     code_writer = OutputStream(deferred_stream, 0)
-    code_offsets = []
     for clazz in self.get_section(SECTION_CLASS).get_items():
       direct_methods = clazz.get_direct_methods()
       virtual_methods = clazz.get_virtual_methods()
