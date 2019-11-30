@@ -655,23 +655,85 @@ class DexWriter(object):
   def write_method_handles(self):
     pass # skip
 
-  def write_encoded_arrays(self):
-    pass
+  def write_encoded_arrays(self, writer):
+    self.encoded_array_section_offset = writer.position
+
+    encoded_array_section = self.get_section(SECTION_ENCODED_ARRAY)
+
+    for arr in encoded_array_section.get_items():
+      arr.offset = writer.position
+      encoded_array = arr.values
+      writer.write_uleb128(len(arr.values))
+      for val in encoded_array:
+        self.write_encoded_value(writer, val)
+
+  
+
+  def write_annotations(self, writer):
+    self.annotation_section_offset = writer.position
+    annotation_section = self.get_seciton(SECTION_ANNOTATION)
+    type_section = self.get_section(SECTION_TYPE)
+    string_section = self.get_section(SECTION_STRING)
+    for ann in annotation_section.get_items():
+      ann.offset = writer.position
+      writer.write_ubyte(ann.visibility)
+      writer.write_uleb128(type_section.get_item_index(ann.type))
+      elems = ann.elements
+      writer.write_uleb128(len(elems))
+      for elem in elems:
+        writer.write_uleb128(string_section.get_item_index(elem.name))
+        self.write_encoded_value(writer, elem.value)    
 
 
-  def write_annotations(self):
-    pass
+  def write_annotation_sets(self, writer):
+    writer.align()
+    self.annotation_set_section_offset = writer.position
+    if self.should_create_empty_annotation_set(): writer.write_int(0)
 
-  def write_annotation_sets(self):
-    pass
+    annotation_set_section = self.get_section(SECTION_ANNOTATION_SET)
+    for item in annotation_set_section.get_items():
+      annotations = item.annotations
+      writer.align()
+      item.offset = writer.position
+      writer.write_int(len(annotations))
+      for annotation in annotations:
+        writer.write_int(annotation.offset)
 
-  def write_annotation_set_refs(self):
-    pass
+  
+  def write_annotation_set_refs(self, writer, dex_pool):
+    writer.align()
+    self.annotation_set_ref_section_offset = writer.position
+    interned = {}
+    ann_section = self.get_section(SECTION_ANNOTATION_SET)
+
+    for clazz in dex_pool:
+      for method in clazz.methods:
+        param_annotation = method.parameter_annotations
+        if not param_annotation: continue
+        prev = interned.get(param_annotation, -1)
+        if prev != -1:
+          param_annotation.offset = prev
+          continue
+
+        writer.align()
+        position = writer.position
+        param_annotation.offset = position
+        interned[param_annotation] = position
+        self.num_annotation_set_ref_items += 1
+        writer.write_int(len(param_annotation))
+        for ann in param_annotation:
+          if ann.offset != NO_OFFSET:
+            writer.write_int(ann.offset)
+          elif self.should_create_empty_annotation_set():
+            writer.write_int(self.annotation_set_section_offset)
+          else:
+            writer.write_int(NO_OFFSET)
+
+
+          
+    
 
   def write_annotation_directories(self):
-    pass
-
-  def write_debug_code_items(self):
     pass
 
 
