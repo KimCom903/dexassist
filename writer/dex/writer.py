@@ -336,7 +336,8 @@ class DexWriter(object):
         debug_item_offset = 0
         code_item_offset = self.write_code_item(code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset)
         if code_item_offset != 1:
-          code_offsets.append(CodeItemOffset(method, code_item_offset))
+          method.code_item_offset = code_item_offset
+          #code_offsets.append(CodeItemOffset(method, code_item_offset))
     
     offset_writer.align()
     code_section_offset = offset_writer.get_position()
@@ -351,7 +352,7 @@ class DexWriter(object):
     code_writer.write_ushort(method.get_register_count())
     is_static = method.is_static()
     params = self.get_section(SECTION_TYPE_LIST).get_types(
-      self.get_section(SECTION_PROTO).get_parameters(method.get_proto())
+      self.get_section(SECTION_PROTO).get_parameters(method.proto)
     )
     code_writer.write_ushort(
       self.get_param_register_count(params, is_static)
@@ -502,33 +503,161 @@ class DexWriter(object):
       offset_writer.write_int(offset)
     
   
+  def write_type_lists(self, writer):
+    writer.align()
+    self.type_list_section_offset = writer.position
 
-  def write_strings(self):
-    pass
+    for item in self.get_section(SECTION_TYPE_LIST).get_items():
+      writer.align()
+      item.offset = writer.position
+      types = item.get_types()
+      for t in types:
+        writer.write_ushort(self.get_section(SECTION_TYPE_LIST).get_item_index(item))
 
-  def write_types(self):
-    pass
-
-  def write_type_lists(self):
-    pass
 
   def write_protos(self):
-    pass
+    self.proto_section_offset = writer.position
+    index = 0
+    for item in self.get_section(SECTION_PROTO).get_items():
+      writer.write_int(
+        self.get_section(SECTION_STRING).get_item_index(
+          item.get_shorty()
+        )
+      )
+      writer.write_int(
+        self.get_section(SECTION_TYPE).get_item_index(
+          item.get_return_type()
+        )
+      )
+      writer.write_int(
+        self.get_section(SECTION_TYPE_LIST).get_item(
+          item.get_parameters()
+        ).offset
+      )
 
-  def write_fields(self):
-    pass
 
-  def write_methods(self):
-    pass
 
-  def write_method_handles(self):
-    pass
+  def write_fields(self, writer):
+    self.field_section_offset = writer.position
+    index = 0
+    type_section = self.get_section(SECTION_TYPE)
+    string_section = self.get_section(SECTION_STRING)
+    for x in self.get_section(SECTION_FIELD).get_items():
+      x.index = index
+      index += 1
+      writer.write_ushort(type_section.get_item_index(x.clazz.type))
+      writer.write_ushort(type_section.get_item_index(x.type))
+      writer.write_int(string_section.get_item_index(x.name))
 
-  def write_method_arrays(self):
-    pass
+  def write_methods(self, writer):
+    self.method_section_offset = writer.position
+    index = 0
+    type_section = self.get_section(SECTION_TYPE)
+    string_section = self.get_section(SECTION_STRING)
+    proto_section = self.get_section(SECTION_PROTO)
+    method_section = self.get_section(SECTION_METHOD)
+
+    for x in method_section.get_items():
+      x.index = index
+      index += 1
+      writer.write_ushort(type_section.get_item_index(x.clazz.type))
+      writer.write_ushort(proto_Section.get_item_index(x.proto))
+      writer.write_int(string_section.get_item_index(x.name))
+
+    
+  def write_classes(self, index_writer, offset_writer):
+    self.class_index_section_offset = index_writer.position
+    self.class_data_section_offset = offset_writer.position
+
+    class_section = self.get_section(SECTION_CLASS)
+    index = 0
+    for x in class_section.get_items():
+      index = self.write_class(index_writer, offset_writer, index, x)
+
+  def write_class(self, index_writer, offset_writer, index, clazz):
+    if clazz in None: return index # not in dex
+    if clazz.index != NO_INDEX: return index # writed
+
+    clazz.index = 0
+
+    index = self.write_class(index_writer, offset_writer, index, clazz.super)
+    for x in clazz.interfaces:
+      index = self.write_class(index_writer, offset_writer, index, x)
+    clazz.index = index
+    index += 1
+    type_section = self.get_section(SECTION_TYPE)
+    type_list_section = self.get_section(SECTION_TYPE_LIST)
+    string_section = self.get_section(SECTION_STRING)
+    
+    index_writer.write_int(type_section.get_item_index(clazz.type))
+    index_writer.write_int(clazz.access_flags)
+    index_writer.write_int(type_section.get_item_index(clazz.super.type))
+    index_writer.write_int(type_list_section.get_item_index([i.type for i in clazz.interfaces]))
+    index_writer.write_int(clazz.annotation_directory_offset)
+
+    static_fields = clazz.get_sorted_static_fields()
+    instance_fields = clazz.get_sorted_instance_fields()
+    direct_methods = clazz.get_sorted_direct_methods()
+    virtual_methods = clazz.get_sorted_virtual_methods()
+
+    offset = offset_writer.position
+    clazz_has_data = len(static_fields) > 0 or len(instance_fields) > 0 or len(direct_methods) > 0 or len(virtual_methods) > 0
+    if not clazz_has_data:
+      offset = NO_OFFSET
+    
+    index_writer.write_int(offset)
+    encoded_array_section = self.get_section(SECTION_ENCODED_ARRAY)
+    if clazz.static_initializers is not None:
+      offset = encoded_array_section.get_item(clazz.static_initializers).offset
+    else:
+      offset = None
+    index_writer.write_int(offset)
+
+    if not clazz_has_data: return index
+
+    self.num_class_data_items += 1
+
+    offset_writer.write_uleb128(len(static_fields))
+    offset_writer.write_uleb128(len(instance_fields))
+    offset_writer.write_uleb128(len(direct_methods))
+    offset_writer.write_uleb128(len(virtual_methods))
+
+    self.write_encoded_fields(offset_writer, static_fields)
+    self.write_encoded_fields(offset_writer, instance_fields)
+    self.write_encoded_methods(offset_writer, direct_methods)
+    self.write_encoded_methods(offset_writer, virtual_methods)
+
+    return index
+
+  def write_encoded_fields(self, offset_writer, field_list):
+    prev_index = 0
+    field_section = self.get_section(SECTION_FIELD)
+    
+    for field in field_list:
+      index = field_section.get_item_index(field)
+      offset_writer.write_uleb128(index - prev_index)
+      offset_writer.write_uleb128(field.access_flags)
+      prev_index = index
+  
+  def write_encoded_methods(self, offset_writer, method_list):
+    prev_index = 0
+    method_section = self.get_section(SECTION_METHOD)
+    for method in method_list:
+      index = method_section.get_item_index(method)
+      writer.write_uleb128(index - prev_index)
+      writer.write_uleb128(method.access_flags)
+      writer.write_uleb128(method.code_item_offset)
+      prev_index = index
 
   def write_call_sites(self):
+    pass # skip
+
+  def write_method_handles(self):
+    pass # skip
+
+  def write_encoded_arrays(self):
     pass
+
 
   def write_annotations(self):
     pass
@@ -543,9 +672,6 @@ class DexWriter(object):
     pass
 
   def write_debug_code_items(self):
-    pass
-
-  def write_classes(self):
     pass
 
 
