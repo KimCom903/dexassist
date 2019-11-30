@@ -528,7 +528,7 @@ class DexWriter(object):
       item.offset = writer.position
       types = item.get_types()
       for t in types:
-        writer.write_ushort(self.get_section(SECTION_TYPE_LIST).get_item_index(item))
+        writer.write_ushort(self.get_section(SECTION_TYPE).get_item_index(t))
 
 
   def write_protos(self, writer):
@@ -668,7 +668,7 @@ class DexWriter(object):
   def write_call_sites(self, writer):
     pass # skip
 
-  def write_method_handles(self):
+  def write_method_handles(self, writer):
     pass # skip
 
   def write_encoded_arrays(self, writer):
