@@ -101,6 +101,7 @@ class BaseWriteStream(object):
 
 
 class OutputStream(BaseWriteStream):
+  
   def close(self):
     pass
 
@@ -111,28 +112,24 @@ class OutputStream(BaseWriteStream):
     pass
 
 
-class DeferredOutputStream(BaseWriteStream):
+class TempOutputStream(BaseWriteStream):
   def __init__(self):
-    pass
+    self.buf = bytearray()
+    self.position = 0
   
-  def write_to(self,writer):
-    pass
+  def write_to(self,stream):
+    stream.buf += self.buf
+    stream.position += self.position
  
-  def close(self):
-    pass
-
-class ByteArrayStream(BaseWriteStream):
-  def __init__(self):
-    pass
-
   def get_position(self):
     return self.position
 
-  def size(self):
-    return 0
+  def close(self):
+    pass
 
   def reset(self):
     pass
+
 
 class BufferStream(BaseWriteStream):
   def __init__(self, buffer):
