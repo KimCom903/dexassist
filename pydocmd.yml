@@ -1,0 +1,14 @@
+site_name: "dexassist"
+
+
+generate:
+- docs/codeeditor.md:
+  - bytecodes.editor:
+    - bytecodes.editor.Editor++
+    - bytecodes.editor.VopCode
+    - bytecodes.editor.OpCodeList
+    - bytecodes.editor.TryCatch
+
+pages:
+ - Home: readme.md
+ - Code Editor: docs/codeeditor.md
