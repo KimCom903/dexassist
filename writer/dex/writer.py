@@ -306,7 +306,7 @@ class DexWriter(object):
     self.write_annotation_sets(offset_writer)
     self.write_annotation_set_refs(offset_writer, dex_pool)
     self.write_annotation_directories(offset_writer, dex_pool)
-    self.write_debug_and_code_items(offset_writer)
+    self.write_debug_and_code_items(offset_writer, TempOutputStream())
     self.write_classes(index_writer, offset_writer)
     self.write_map_item(offset_writer)
     self.write_header(header_writer, data_section_offset, offset_writer.get_position())
@@ -337,11 +337,11 @@ class DexWriter(object):
         item.get_value()
       ))
 
-  def write_debug_and_code_items(self, offset_writer):
-    ehbuf = bytearray()
+  def write_debug_and_code_items(self, offset_writer, deferred_stream):
+    ehbuf = TempOutputStream()
     self.debug_section_offset = offset_writer.get_position()
     # pass write debug section!
-    code_writer = OutputStream(buf, 0)
+    code_writer = deferred_stream
     for clazz in self.get_section(SECTION_CLASS).get_items():
       direct_methods = clazz.get_direct_methods()
       virtual_methods = clazz.get_virtual_methods()
@@ -353,30 +353,34 @@ class DexWriter(object):
         #method, debug_items
         #)
         debug_item_offset = 0
-        code_item_offset = self.write_code_item(offset_writer, ehbuf, method, try_blocks, instructions, debug_item_offset)
+        code_item_offset = self.write_code_item(code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset)
         if code_item_offset != 1:
           method.code_item_offset = code_item_offset
           #code_offsets.append(CodeItemOffset(method, code_item_offset))
+    
+    offset_writer.align()
     self.code_section_offset = offset_writer.get_position()
+    code_writer.close()
+    code_writer.write_to(offset_writer)
+    code_writer.close()
 
-
-
-  def write_code_item(self, offset_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
+  def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
     self.num_code_items += 1
-    code_item_offset = offset_writer.get_position()
-    offset_writer.write_ushort(get_method_register_count(method))
+    code_writer.align()
+    code_item_offset = code_writer.get_position()
+    code_writer.write_ushort(get_method_register_count(method))
     is_static = method.is_static()
     params = self.get_section(SECTION_TYPE_LIST).get_types(
       self.get_section(SECTION_PROTO).get_parameters(method.proto)
     )
-    offset_writer.write_ushort(
+    code_writer.write_ushort(
       get_parameter_register_count(params, is_static)
     )
     if instructions is None:
-      offset_writer.write_ushort(0)
-      offset_writer.write_ushort(0)
-      offset_writer.write_int(debug_item_offset)
-      offset_writer.write_int(0)
+      code_writer.write_ushort(0)
+      code_writer.write_ushort(0)
+      code_writer.write_int(debug_item_offset)
+      code_writer.write_int(0)
       return code_item_offset
     #try_blocks = TryListBuilder.massage_try_blocks(try_blocks)
     out_param_count = 0
@@ -395,9 +399,9 @@ class DexWriter(object):
 
         if param_count > out_param_count: out_param_count = param_count
 
-    offset_writer.write_ushort(out_param_count)
-    offset_writer.write_ushort(len(try_blocks))
-    offset_writer.write_int(debug_item_offset)
+    code_writer.write_ushort(out_param_count)
+    code_writer.write_ushort(len(try_blocks))
+    code_writer.write_int(debug_item_offset)
 
     ins_writer = InstructionWriter.make_ins_writer(instructions, code_writer, self.get_section(SECTION_STRING),
     self.get_section(SECTION_TYPE),
@@ -407,7 +411,7 @@ class DexWriter(object):
     self.get_section(SECTION_METHOD_HANDLE),
     self.get_section(SECTION_CALL_SITE))
 
-    offset_writer.write_int(code_unit_count)
+    code_writer.write_int(code_unit_count)
     code_offset = 0
 
     for ins in instructions:
@@ -415,11 +419,12 @@ class DexWriter(object):
       code_offset += ins.get_code_units()
     
     if len(try_blocks) > 0:
+      code_writer.align()
       handler_map = dict()
     
     for try_block in try_blocks:
       handler_map[try_block.get_exception_handlers()] = 0
-    DataWriter.write_uleb128(ehbuf, len(handler_map))
+    ehbuf.write_uleb128(len(handler_map))
 
     for try_block in try_blocks:
       code_writer.write_int(try_block.get_start_addr())
@@ -439,20 +444,20 @@ class DexWriter(object):
       if eh_last.get_exception_type() is None:
         eh_size = -eh_size + 1
       
-      DataWriter.write_sleb128(ehbuf, eh_size)
+      ehbuf.write_sleb128(eh_size)
       for eh in try_block.get_exception_handlers():
         exception_type = eh.get_exception_type()
         code_addr = eh.get_handler_addr()
         if exception_type is not None:
           # regular
-          DataWriter.write_uleb128(ehbuf, self.get_section(SECTION_TYPE).get_item_index(exception_type))
-          DataWriter.write_uleb128(ehbuf, code_addr)
+          ehbuf.write_uleb128(self.get_section(SECTION_TYPE).get_item_index(exception_type))
+          ehbuf.write_uleb128(code_addr)
         else:
           #catch(Throwable)
-          DataWriter.write_uleb128(ehbuf, code_addr)
-    if ehbuf.size() > 0:
-      code_writer.write_stream(ehbuf)
-      ehbuf.reset()
+          ehbuf.write_uleb128(code_addr)
+    if ehbuf.get_position() > 0:
+      eubuf.write_to(code_writer)
+      ehbuf.close()
 
   def calc_map_list_item_count(self):
     num_items = 2 # header, map_list_item
