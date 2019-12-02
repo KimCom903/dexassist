@@ -144,7 +144,12 @@ class DataWriter(object):
     buf.write_sleb(value)
 
 class InstructionWriter(BaseWriteStream):
-  def make_ins_writer(self, instructions, code_writer, string_section, type_section, field_section, method_section, proto_section, method_handle_section, call_site_section):
-    pass
+  @staticmethod
+  def __init__(code_writer, section_manager):
+    self.stream = code_writer
+    self.manager = section_manager
+
+  def write(ins):
+    ins.write_byte_stream(self.stream, self.manager)
 
 
