@@ -102,8 +102,9 @@ class BaseWriteStream(object):
 
 class OutputStream(BaseWriteStream):
   
-  def close(self):
-    f = open("Classes.dex", 'w')
+  def close(self, value):
+    str = "Classes" + str(value) + ".dex"
+    f = open(str, 'w')
     f.write(self.buf)
     f.close()
 
