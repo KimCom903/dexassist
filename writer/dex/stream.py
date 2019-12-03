@@ -103,13 +103,17 @@ class BaseWriteStream(object):
 class OutputStream(BaseWriteStream):
   
   def close(self):
-    pass
+    f = open("Classes.dex", 'w')
+    f.write(self.buf)
+    f.close()
 
   def get_position(self):
     return self.position
 
   def align(self):
-    pass
+    zeros = (-self.get_position()) & 3
+    if zeros > 0:
+      write_ubyte(0)
 
 
 class TempOutputStream(BaseWriteStream):
