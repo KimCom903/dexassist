@@ -85,7 +85,6 @@ class SectionManager(object):
   def __init__(self, manager):
     self.section_map = {}
     self.externel_manager = manager
-    print(manager.externel_type_list)
   def get_section(self, key):
     return self.section_map[key]
 
@@ -112,6 +111,8 @@ class SectionManager(object):
         type_list.add(field.type)
       for method in clazz.methods:
         type_list.add(method.return_type)
+        for parameter in method.params:
+          type_list.add(parameter)
     for type_ in self.externel_manager.externel_type_list:
       type_list.add(type_)
     x = list(type_list)
@@ -119,13 +120,14 @@ class SectionManager(object):
     for types in x:
       section.add_item(types)
     self.section_map[SECTION_TYPE] = section
+    print(section.type_map)
 
   def build_proto_section(self, dex_pool):
     section = ProtoSection(self)
     proto_list = set()
     for clazz in dex_pool:
       for method in clazz.methods:
-        proto_list.add(method.signature)
+        proto_list.add(method.proto)
     for proto_ in self.externel_manager.externel_proto_list:
       proto_list.add(proto_)
     x = list(proto_list)
@@ -198,6 +200,8 @@ class SectionManager(object):
       section.add_item(clazz.interfaces)
       for method in clazz.methods:
         section.add_item(method.proto.parameters)
+    for type_list_ in self.externel_manager.externel_type_list_list:
+      section.add_item(type_list_)
     self.section_map[SECTION_TYPE_LIST] = section
 
   def build_annotation_set_ref_list_section(self, dex_pool):
@@ -565,15 +569,14 @@ class DexWriter(object):
       )
       writer.write_int(
         self.get_section(SECTION_TYPE).get_item_index(
-          item.return_type()
+          item.return_type
         )
       )
       writer.write_int(
         self.get_section(SECTION_TYPE_LIST).get_item(
-          item.parameters()
+          item.parameters
         ).offset
       )
-
 
 
   def write_fields(self, writer):

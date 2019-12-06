@@ -121,6 +121,8 @@ class MethodSection(Section):
         return object_item
   def get_item_index(self, value):
     return self.method_map[value]  
+  def get_items(self):
+    return list(self.method_map.keys())
 
 class ClassSection(Section):
   def __init__(self, section_manager):
@@ -156,12 +158,13 @@ class TypeListSection(Section):
     self.section_ = section_manager
   def add_item(self, types):
     types = TypeListItem(types)
-    self.type_list_map[types] = self.index # set id
+    self.type_list_map[types] = types # set id
     self.index += 1
   def get_item(self, value):
-    return list(self.type_list_map.keys())[value]
+    value = TypeListItem(value)
+    return self.type_list_map[value]
   def get_items(self):
-    return list(self.type_list_map.keys())
+    return self.type_list_map.keys()
   def get_item_index(self, value):
     value = "".join(value)
     return self.type_list_map[value]   

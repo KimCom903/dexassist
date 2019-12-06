@@ -870,6 +870,7 @@ class DexManager(object):
     self.externel_string_list = set()
     self.externel_proto_list = set()
     self.externel_class_list = {}
+    self.externel_type_list_list = []
     
   def get_string(self, index):
     return self.string_list[index]
@@ -907,17 +908,18 @@ class DexManager(object):
           parameter_type_idx = type_item.type_idx
           type_info = self.type_list[parameter_type_idx]
           parameter.append(type_info)
-      m = self.create_method(self.type_list[self.method_list[index].class_idx], method_name, proto_shorty, return_type, parameter)
+      m = self.create_method(self.type_list[self.method_list[index].class_idx], method_name, proto_shorty, parameter, return_type)
       self.externel_proto_list.add(m.create_proto())
+      self.externel_type_list_list.append(m.params)
+      self.externel_string_list.add(m.proto.shorty)
       self.externel_method_list.append(m)
       self.externel_type_list.add(self.type_list[self.method_list[index].class_idx])
       self.externel_type_list.add(return_type)
       self.externel_string_list.add(method_name)
       self.externel_string_list.add(self.type_list[self.method_list[index].class_idx])
       self.externel_string_list.add(return_type)
-      for it in parameter:
-        self.externel_string_list.add(it)
-        self.externel_type_list.add(it)
+      self.externel_string_list.update(parameter)
+      self.externel_type_list.update(parameter)
       return m
 
   def get_field_dex_item_by_index(self, index):
@@ -932,15 +934,17 @@ class DexManager(object):
       self.externel_type_list.add(target_class)
       self.externel_string_list.add(target_class)
       self.externel_field_list.append(f)
+      self.externel_string_list.add(target_name)
       return f
 
-  def create_method(self, class_name, method_name, proto_shorty, return_type, parameter):
+  def create_method(self, class_name, method_name, proto_shorty, parameter, return_type):
     if class_name in self.externel_class_list.keys():
-      return normalize.DexMethod(self.externel_class_list[class_name], method_name, 0, proto_shorty, return_type, parameter, 0)
+      return normalize.DexMethod(self.externel_class_list[class_name], method_name, 0, proto_shorty, parameter, return_type, 0)
     nclass = normalize.DexClassItem()
     nclass.name = class_name
+    nclass.type = class_name
     self.externel_class_list[class_name] = nclass
-    return normalize.DexMethod(nclass, method_name, 0, proto_shorty, return_type, parameter, 0)
+    return normalize.DexMethod(nclass, method_name, 0, proto_shorty, parameter, return_type, 0)
     
 
   def create_field(self, class_name, target_name, target_type):
@@ -948,6 +952,7 @@ class DexManager(object):
       return normalize.DexField(self.externel_class_list[class_name], target_name, target_type, 0)
     nclass = normalize.DexClassItem()
     nclass.name = class_name
+    nclass.type = class_name
     self.externel_class_list[class_name] = nclass
     return normalize.DexField(nclass, target_name, target_type, 0)
 

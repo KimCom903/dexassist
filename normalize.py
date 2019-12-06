@@ -48,8 +48,13 @@ class DexClassItem(object):
       for opcode in editor.opcodes:
         if opcode.op == OP_CONST_STRING:
           ret.add(opcode.get_string())
+      ret.add(x.shorty)
+      ret.add(x.name)
+      ret.add(x.return_type)
+      ret.update(x.params)
     for x in self.fields:
       ret.add(x.type)
+      ret.add(x.name)
     return ret
 
 class DexField(object):
@@ -81,7 +86,8 @@ class DexMethod(object):
     self.annotations = []
     self.name = method_name
     self.clazz = parent
-    self.return_type, self.params = return_t, parameter
+    self.return_type = return_t
+    self.params = parameter
     self.shorty = proto_shorty
     self.make_signature()
     print('signature : {}'.format(self.signature))

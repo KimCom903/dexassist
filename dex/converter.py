@@ -285,3 +285,4 @@ class CodeItemReader(object):
         self.editor.tries.append(trycatch)
     self.editor.opcode_list = self.opcodes
 
+
