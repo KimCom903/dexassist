@@ -862,6 +862,7 @@ class DexManager(object):
     self.method_item_list = {}
     self.field_item_list = {}
     self.proto_item_list = {}
+    self.externel_class_list = []
     
   def get_string(self, index):
     return self.string_list[index]
