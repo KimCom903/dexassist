@@ -13,6 +13,10 @@ class DexConverter(object):
     dex = normalize.Dex()
     for x in manager.class_def_list:
       dex.add_class(self.create_dex_class(x, manager))
+    for clazz in dex.classes:
+      for method in clazz.methods:
+        for opcode in method.editor.opcode_list:
+          opcode.set_ref_item()
     return dex
   def translate_encoded_value(self, manager, encoded_value):
     if encoded_value.type == dex.ENCODED_VALUE_ARRAY:
@@ -97,6 +101,8 @@ class DexConverter(object):
       f = self.create_dex_field(item, field_name, type_name, access_flags)
       f.annotations = field_annotation_table.get(field_idx, [])
       item.fields.append(f)
+      manager.field_item_list[field_name + item.name] = f
+      
     field_idx = 0
     for f in cdi.data.instance_fields:
       field_idx += f.field_idx_diff
@@ -107,6 +113,7 @@ class DexConverter(object):
       f = self.create_dex_field(item, field_name, type_name, access_flags)
       f.annotations = field_annotation_table.get(field_idx, [])
       item.fields.append(f)
+      manager.field_item_list[field_name + item.name] = f
 
     method_idx = 0
     for m in cdi.data.direct_methods:
@@ -120,6 +127,7 @@ class DexConverter(object):
       access_flags = m.access_flags
       code = m.code
       proto = manager.proto_list[proto_idx]
+      dict_key = manager.string_list[proto.shorty_idx]
       return_type_idx = proto.return_type_idx
       parameter = []
       if proto.type_list:
@@ -133,6 +141,8 @@ class DexConverter(object):
       x.annotations = method_annotation_table.get(method_idx, [])
       x.param_annotations = param_annotation_table.get(method_idx, [])
       item.methods.append(x)
+      manager.method_item_list[item.type + method_name + dict_key] = x
+      manager.proto_item_list[dict_key] = x.create_proto()
     
     method_idx = 0
     for m in cdi.data.virtual_methods:
@@ -140,6 +150,7 @@ class DexConverter(object):
       method_item = manager.method_list[method_idx]
       class_idx = method_item.class_idx
       proto_idx = method_item.proto_idx
+      dict_key = manager.string_list[proto.shorty_idx]
       name_idx = method_item.name_idx
 
       method_name = manager.string_list[name_idx]
@@ -160,7 +171,8 @@ class DexConverter(object):
       x.annotations = method_annotation_table.get(method_idx, [])
       x.param_annotations = param_annotation_table.get(method_idx, [])
       item.methods.append(x)
-
+      manager.method_item_list[item.type + method_name + dict_key] = x
+      manager.proto_item_list[dict_key] = x.create_proto()
 
     return item
 
@@ -259,7 +271,6 @@ class CodeItemReader(object):
         payload_size += payload.get_size()
         instruction.payload = payload
 
-      print(instruction)
       self.opcodes.append(instruction)
     type_addrs = []
     if code_item.tries and False:

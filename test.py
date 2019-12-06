@@ -1,7 +1,7 @@
 from dex import converter, dex
 from writer import dex as writer_dex
 from writer.dex.writer import DexWriter
-from writer.dex.stream import DexFileWriteStream
+from writer.dex.stream import OutputStream
 def print_dex(dex_path):
   with open(dex_path, 'rb') as f:
     x = f.read()
@@ -23,7 +23,8 @@ def duplicate_dex(dex_path):
   header = dex.HeaderItem(manager, stream, 0)
   mdex = converter.DexConverter().get_dex(header, manager)
   print(dir(writer_dex))
-  stream =DexFileWriteStream()
+  buf = bytearray()
+  stream = OutputStream(buf,0)
   #mdex.write(stream)
   p = DexWriter(mdex)
   p.write(stream)
