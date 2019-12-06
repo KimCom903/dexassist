@@ -102,9 +102,8 @@ class BaseWriteStream(object):
 
 class OutputStream(BaseWriteStream):
   
-  def close(self, value):
-    str = "Classes" + str(value) + ".dex"
-    f = open(str, 'w')
+  def close(self):
+    f = open("Classes.dex", 'w')
     f.write(self.buf)
     f.close()
 
@@ -135,18 +134,17 @@ class TempOutputStream(BaseWriteStream):
   def reset(self):
     pass
 
+  def align(self):
+    zeros = (-self.get_position()) & 3
+    if zeros > 0:
+      write_ubyte(0)    
+
 
 class BufferStream(BaseWriteStream):
   def __init__(self, buffer):
     self.buf = buffer
     self.position = 0
 
-class DataWriter(object):
-  def write_uleb(self, buf, value):
-    buf.write_uleb(value)
-
-  def write_sleb(self, buf, value):
-    buf.write_sleb(value)
 
 class InstructionWriter(BaseWriteStream):
   @staticmethod

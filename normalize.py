@@ -1,3 +1,4 @@
+NO_OFFSET = -1
 
 class Dex(object):
   def __init__(self):
@@ -27,6 +28,12 @@ class DexClassItem(object):
     return self.name
   def fix(self):
     pass
+  def __hash__(self):
+    return hash(self.name + self.type)
+  def __eq__(self,othr):
+    if(othr.hash() == self.hash()):
+      return True
+    return False
 
   def get_ref_strings(self):
     return self.get_related_strings()
@@ -61,9 +68,13 @@ class DexField(object):
       ret += ''.join(a)
     print(ret)
     return ret
-
-
-
+  def __hash__(self):
+    return hash(self.name + self.type + self.clazz)
+  def __eq__(self,othr):
+    if(othr.hash() == self.hash()):
+      return True
+    return False
+    
 class DexMethod(object):
   def __init__(self, parent, method_name, access_flags, signature, editor):
     self.annotations = []
@@ -75,8 +86,10 @@ class DexMethod(object):
     self.editor = editor
   def get_editor(self):
     return self.editor
+    
   def create_proto(self):
-    pass
+    self.proto = DexProto(self.signature, self.return_type, self.params)
+    return self.proto
 
   def create_shorty_descriptor(self):
     return self.signature
@@ -104,16 +117,50 @@ class DexMethod(object):
       for x in self.editor.tries:
         opcodes += str(x) + '\n'
     ret += opcodes
-
     return ret
+  
+  def __hash__(self):
+    return hash(self.signature)
+  def __eq__(self,othr):
+    if(othr.hash() == self.hash()):
+      return True
+    return False 
+  
+class DexProto(object):
+  def __init__(self, signature, return_type, params):
+    self.shorty = signature
+    self.return_type = return_type
+    self.parameters = params
+  def __hash__(self):
+    return hash(self.shorty)
+  def __eq__(self,othr):
+    if self.shorty == othr.shorty:
+      return True
+    return False
+  def __str__(self):
+    return self.shorty
 
 class DexAnnotation(object):
   def __init__(self, target, visibility, type_name, key_name_tuples):
     self.target = target
     self.visibility = visibility
     self.type_name = type_name
-    self.key_name_tuples = key_name_tuples
-
+    self.elements = key_name_tuples
+    self.annotation_offset = NO_OFFSET
+    self.annotation_set_offset = NO_OFFSET
+    
+  def get_annotation_offset(self):
+    return self.annotation_offset
+  
+  def set_annotation_offset(self, value):
+    self.annotation_offset = value
+    
+  def get_annotation_set_offset(self):
+    return self.annotation_set_offset
+  
+  def set_annotation_set_offset(self, value):
+    self.annotation_set_offset = value
+    
   def __str__(self):
     return '{}({})'.format(self.type_name, self.key_name_tuples)
 VALUE_TYPE_BYTE = 0x00
@@ -135,10 +182,12 @@ VALUE_TYPE_ANNOTATION = 0x1d
 VALUE_TYPE_NULL = 0x1e
 VALUE_TYPE_BOOLEAN = 0x1f
 VALUE_TYPE_AUTO = 0xff
+
 class DexValue(object):
   def __init__(self, value, value_type = VALUE_TYPE_AUTO):
     self.value = value
     self.value_type = value_type
+    self.encoded_array_offset = NO_OFFSET
   
   def encode(self, stream):
     encoded_type = self.get_type()
@@ -197,3 +246,9 @@ class DexValue(object):
       return VALUE_TYPE_FIELD
     if isinstance(self.value, DexAnnotation):
       return VALUE_TYPE_ANNOTATION
+    
+  def get_encoded_array_offset(self):
+    return self.encoded_array_offset
+  
+  def set_encoded_array_offset(self,value):
+    self.encoded_array_offset = value
