@@ -30,9 +30,9 @@ class DexClassItem(object):
   def fix(self):
     pass
   def __hash__(self):
-    return hash(self.name + self.type)
+    return hash(self.name)
   def __eq__(self,othr):
-    if(othr.hash() == self.hash()):
+    if(hash(othr) == hash(self)):
       return True
     return False
 
@@ -72,7 +72,7 @@ class DexField(object):
   def __hash__(self):
     return hash(self.name + self.clazz.name)
   def __eq__(self,othr):
-    if(othr.hash() == self.hash()):
+    if(hash(othr) == hash(self)):
       return True
     return False
     
@@ -121,7 +121,7 @@ class DexMethod(object):
   def __hash__(self):
     return hash(self.clazz.name + self.name + self.proto.shorty)
   def __eq__(self,othr):
-    if(othr.hash() == self.hash()):
+    if(hash(self) == hash(othr)):
       return True
     return False 
   
