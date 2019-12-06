@@ -6,7 +6,7 @@ except:
   from writer.multidex.multidex import DefaultMultiDexPolicy
   from writer.dex.section import *
 
-from util import InstructionUtil
+from writer.dex.util import InstructionUtil
 
 NO_INDEX = -1
 NO_OFFSET = 0
@@ -360,9 +360,7 @@ class DexWriter(object):
     
     offset_writer.align()
     self.code_section_offset = offset_writer.get_position()
-    code_writer.close()
     code_writer.write_to(offset_writer)
-    code_writer.close()
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
     self.num_code_items += 1
@@ -457,7 +455,6 @@ class DexWriter(object):
           ehbuf.write_uleb128(code_addr)
     if ehbuf.get_position() > 0:
       eubuf.write_to(code_writer)
-      ehbuf.close()
 
   def calc_map_list_item_count(self):
     num_items = 2 # header, map_list_item
@@ -537,17 +534,17 @@ class DexWriter(object):
     for item in self.get_section(SECTION_PROTO).get_items():
       writer.write_int(
         self.get_section(SECTION_STRING).get_item_index(
-          item.get_shorty()
+          item.shorty
         )
       )
       writer.write_int(
         self.get_section(SECTION_TYPE).get_item_index(
-          item.get_return_type()
+          item.return_type()
         )
       )
       writer.write_int(
         self.get_section(SECTION_TYPE_LIST).get_item(
-          item.get_parameters()
+          item.parameters()
         ).offset
       )
 

@@ -13,6 +13,25 @@ INSTRUCT_TYPE_METHOD_HANDLE = 8
 INSTRUCT_TYPE_CALL_METHOD = 9
 INSTRUCT_TYPE_CALL_PROTO = 10
 
+SECTION_STRING = 1
+SECTION_TYPE = 2
+SECTION_PROTO = 3
+SECTION_FIELD = 4
+SECTION_METHOD = 5
+SECTION_CLASS = 6
+SECTION_CALL_SITE = 7
+SECTION_METHOD_HANDLE = 8
+SECTION_TYPE_LIST = 9
+SECTION_ENCODED_ARRAY = 10
+SECTION_ANNOTATION = 11
+SECTION_ANNOTATION_SET = 12
+SECTION_ANNOTATION_DIRECTORY = 13
+SECTION_ANNOTATION_SET_REF = 14
+SECTION_DEBUG = 15
+SECTION_CODE = 16
+SECTION_CLASS_DATA = 17
+SECTION_MAP = 18
+
 def translate_opcode(opcode):
   return OPCODE_TABLE[opcode][1]
 def translate_operand_type(opcode):
@@ -22,14 +41,14 @@ class Instruction(object):
     self.manager = manager
   def initialize(self):
     pass
-
-    
-  def get_typeindex_string(self, opcode, index):
+  def set_ref_item(self):
+    pass
+  def get_typeindex_item(self, opcode, index):
     op_type = translate_operand_type(opcode)
     if op_type == INSTRUCT_TYPE_STRING:
-      return '"' + self.manager.get_string_by_index(index) + '"'
+      return self.manager.get_string_by_index(index)
     elif op_type == INSTRUCT_TYPE_TYPE:
-      ret = self.manager.get_type_by_index(index)
+      ret = self.manager.get_type_dex_item_by_index(index)
       if len(ret) > 1: return ret
       if ret == 'v':
         return 'void'
@@ -37,21 +56,24 @@ class Instruction(object):
         return 'int'
       return ret
     elif op_type == INSTRUCT_TYPE_METHOD:
-      method = self.manager.get_method_by_index(index)
-      return method.repr()
+      method = self.manager.get_method_dex_item_by_index(index)
+      return method
     elif op_type == INSTRUCT_TYPE_FIELD:
-      return self.manager.get_field_by_index(index).get_name()
+      return self.manager.get_field_dex_item_by_index(index)
     elif op_type == INSTRUCT_TYPE_OFFSET:
-      return self.manager.get_offset_by_index(index).get_name()
+      return self.manager.get_offset_by_index(index)
     elif op_type == INSTRUCT_TYPE_KIND:
-      return self.manager.get_kind_by_index(index).get_name()
+      return self.manager.get_kind_by_index(index)
     elif op_type == INSTRUCT_TYPE_PROTO:
-      return self.manager.get_proto_by_index(index).get_name()
+      return self.manager.get_proto_dex_item_by_index(index)
     elif op_type == INSTRUCT_TYPE_CALL_SITE:
-      return self.manager.get_site_by_index(index).get_name()
+      return self.manager.get_site_item_by_index(index)
     elif op_type == INSTRUCT_TYPE_METHOD_HANDLE:
-      return self.manager.get_method_handle_by_index(index).get_name()
+      return self.manager.get_method_handle_item_by_index(index)
 
+  def get_section_type(self, opcode):
+    return OPCODE_TABLE[opcode][3]
+  
   def __len__(self):
     raise Exception('length not defined')
     
@@ -92,7 +114,7 @@ class Instruction00x(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     pass
   
   def as_string(self):
@@ -106,7 +128,7 @@ class Instruction10x(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(0)
     stream.write_ubyte(self.op)
     return len(self)
@@ -130,7 +152,7 @@ class Instruction12x(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte((self.B << 4) + self.A)
     stream.write_ubyte(self.op)
     return len(self)
@@ -160,7 +182,7 @@ class Instruction11x(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(self.AA)
     stream.write_ubyte(self.op)
     return len(self)
@@ -181,7 +203,7 @@ class Instruction10t(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(self.AA)
     stream.write_ubyte(self.op)
     return len(self)
@@ -202,7 +224,7 @@ class Instruction20t(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(0)
     stream.write_ubyte(self.op)
     stream.write_ushort(self.AAAA)
@@ -223,14 +245,17 @@ class Instruction20bc(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(self.AA)
     stream.write_ubyte(self.op)
-    stream.write_ushort(self.BBBB)
+    stream.write_ushort(manager.get_section(self.get_section_type(self.op)).get_item_index(self.BBBB))
     return len(self)
   
+  def set_ref_item(self):
+    self.BBBB = self.get_typeindex_item(self.op, self.BBBB)
+  
   def as_string(self):
-    str = '{} {:02x}, '.format(self.get_opcode_string(), self.AA) + self.get_typeindex_string(self.get_op(), self.BBBB)
+    str = '{} {:02x}, '.format(self.get_opcode_string(), self.AA) + self.BBBB.name
     return str
 
   def from_byte(self, stream):
@@ -247,7 +272,7 @@ class Instruction22x(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(self.AA)
     stream.write_ubyte(self.op)
     stream.write_ushort(self.BBBB)
@@ -288,21 +313,36 @@ class Instruction21h(Instruction22x):
 #                               proto@BBBB
 #                               string@BBBB
 class Instruction21c(Instruction22x):
-  def initialize(self):
-    self.string = ''
-    if self.op == 0x1a:
-      self.string = self.get_typeindex_string(self.get_op() ,self.BBBB)
+  def set_ref_item(self):
+    self.BBBB = self.get_typeindex_item(self.op, self.BBBB)
+
   def as_string(self):
-    str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AA) + self.string
+    str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AA) + self.get_item_string()
     return str
+
+  def get_item_string(self):
+    if self.op == 0x1a or self.op == 0x1c or self.op == 0x1f or self.op == 0x22:
+      return self.BBBB
+    elif self.op != 0xfe:
+      return self.BBBB.name
+    elif self.op == 0xff:
+      return self.BBBB.shorty
+  
   def get_string(self):
-    return self.string
+    return self.as_string()
+  
+  def write_byte_stream(self, stream, manager):
+    stream.write_ubyte(self.AA)
+    stream.write_ubyte(self.op)
+    stream.write_ushort(manager.get_section(self.get_section_type(self.op)).get_item_index(self.BBBB))
+    return len(self)
+  
 # AA|op CC|BB	23x	    op vAA, vBB, vCC
 class Instruction23x(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(self.AA)
     stream.write_ubyte(self.op)
     stream.write_ubyte(self.CC)
@@ -337,7 +377,7 @@ class Instruction22t(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte((self.B << 4) + self.A)
     stream.write_ubyte(self.op)
     stream.write_ushort(self.CCCC)
@@ -368,22 +408,37 @@ class Instruction22s(Instruction22t):
 #                                  field@CCCC                                                  
 class Instruction22c(Instruction22t):
   def as_string(self):
-    str = '{} v{:01x}, v{:01x}, '.format(self.get_opcode_string(), self.A, self.B) + self.get_typeindex_string(self.get_op() ,self.CCCC) 
+    if self.op == 0x23 or self.op == 0x20:
+      str = '{} v{:01x}, v{:01x}, '.format(self.get_opcode_string(), self.A, self.B) + self.CCCC
+    else:
+      str = '{} v{:01x}, v{:01x}, '.format(self.get_opcode_string(), self.A, self.B) + self.CCCC.name
     return str
+
+  def set_ref_item(self):
+    self.CCCC = self.get_typeindex_item(self.op, self.CCCC)
+    
+  def write_byte_stream(self, stream, manager):
+    stream.write_ubyte((self.B << 4) + self.A)
+    stream.write_ubyte(self.op)
+    stream.write_ushort(manager.get_section(self.get_section_type(self.op)).get_item_index(self.CCCC))
+    return len(self)
 
 # B|A|op CCCC   22cs    op vA, vB, fieldoff@CCCC
 # not used instruction
 class Instruction22cs(Instruction22t):
   def as_string(self):
-    str = '{} v{:01x}, v{:01x}, '.format(self.get_opcode_string(), self.A, self.B) + self.get_typeindex_string(self.get_op() ,self.CCCC)
+    str = '{} v{:01x}, v{:01x}, '.format(self.get_opcode_string(), self.A, self.B) + self.CCCC
     return str
+  
+  def set_ref_item(self):
+    self.BBBB = self.get_typeindex_item(self.op, self.BBBB)
 
 # ØØ|op AAAAlo AAAAhi	30t	    op +AAAAAAAA
 class Instruction30t(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(0)
     stream.write_ubyte(self.op)
     stream.write_uint(self.AAAAAAAA)
@@ -409,7 +464,7 @@ class Instruction32x(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(0)
     stream.write_ubyte(self.op)
     stream.write_ushort(self.AAAA)
@@ -435,7 +490,7 @@ class Instruction31i(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(self.AA)
     stream.write_ubyte(self.op)
     stream.write_uint(self.BBBBBBBB)
@@ -467,8 +522,17 @@ class Instruction31t(Instruction31i):
 class Instruction31c(Instruction31i):
   def as_string(self):
     #print('BBBBBBBB : {:08x}'.format(self.BBBBBBBB))
-    str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AA) + self.get_typeindex_string(self.get_op(), self.BBBBBBBB)
+    str = '{} v{:02x}, '.format(self.get_opcode_string(), self.AA) + self.BBBBBBBB
     return str
+  
+  def set_ref_item(self):
+    self.BBBBBBBB = self.get_typeindex_item(self.op, self.BBBBBBBB)
+  
+  def write_byte_stream(self, stream, manager):
+    stream.write_ubyte(self.AA)
+    stream.write_ubyte(self.op)
+    stream.write_uint(manager.get_section(self.get_section_type(self.op)).get_item_index(self.BBBBBBBB))
+    return len(self)
 
 # A|G|op BBBB F|E|D|C	35c	    [A=5] op {vC, vD, vE, vF, vG}, meth@BBBB
 #                               [A=5] op {vC, vD, vE, vF, vG}, call_site@BBBB
@@ -482,7 +546,7 @@ class Instruction35c(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte((self.A << 4) + self.G)
     stream.write_ubyte(self.op)
     stream.write_ushort(self.BBBB)
@@ -492,19 +556,28 @@ class Instruction35c(Instruction):
   
   def as_string(self):
     if self.A==5:
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F, self.G) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F, self.G) + '}, ' + self.get_item_string()
     elif self.A==4:
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F) + '}, ' + self.get_item_string()
     elif self.A==3:
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E) + '}, ' + self.get_item_string()
     elif self.A==2:
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}'.format(self.C, self.D) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB) 
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}'.format(self.C, self.D) + '}, ' + self.get_item_string()
     elif self.A==1:
-      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}'.format(self.C) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}'.format(self.C) + '}, ' + self.get_item_string()
     elif self.A==0:
-      str = '{} '.format(self.get_opcode_string()) + '{}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)                                                         
+      str = '{} '.format(self.get_opcode_string()) + '{}, ' + self.get_item_string()                                                        
     return str
 
+  def get_item_string(self):
+    if self.op == 0x24:
+      return self.BBBB
+    elif self.op != 0xfc:
+      return self.BBBB.name
+
+  def set_ref_item(self):
+    self.BBBB = self.get_typeindex_item(self.op, self.BBBB)
+  
   def from_string(self):
     pass
 
@@ -548,17 +621,23 @@ class Instruction3rc(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(self.AA)
     stream.write_ubyte(self.op)
-    stream.write_ushort(self.BBBB)
+    stream.write_ushort(manager.get_section(self.get_section_type(self.op)).get_item_index(self.BBBB))
     stream.write_ushort(self.CCCC)
     return len(self)
   
   def as_string(self):
-    str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:04x} .. v{:04x}'.format(self.CCCC, self.CCCC + self.AA -1) + '}, ' + self.get_typeindex_string(self.get_op() ,self.BBBB)                                              
+    if self.op == 0x25:
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:04x} .. v{:04x}'.format(self.CCCC, self.CCCC + self.AA -1) + '}, ' + self.BBBB
+    elif self.op != 0xfd:
+      str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:04x} .. v{:04x}'.format(self.CCCC, self.CCCC + self.AA -1) + '}, ' + self.BBBB.name
     return str
 
+  def set_ref_item(self):
+    self.BBBB = self.get_typeindex_item(self.op, self.BBBB)  
+  
   def from_string(self):
     pass
 
@@ -589,27 +668,32 @@ class Instruction45cc(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte((self.A << 4) + self.G)
     stream.write_ubyte(self.op)
-    stream.write_ushort(self.BBBB)
+    stream.write_ushort(manager.get_section(SECTION_MEHTOD).get_item_index(self.BBBB))
     stream.write_ubyte((self.F << 4) + self.E)
     stream.write_ubyte((self.D << 4) + self.C)
+    stream.wrtie_ushort(manager.get_section(SECTION_PROTO).get_item_index(self.HHHHH))
     return len(self)  
   
   def as_string(self):
     if self.A == 5:
-      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F, self.G) + '}, ' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
+      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F, self.G) + '}, ' + self.BBBB.name + ', ' + self.HHHH.shorty
     if self.A == 4:
-      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F) + '}, ' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
+      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E, self.F) + '}, ' + self.BBBB.name + ', ' + self.HHHH.shorty
     if self.A == 3:
-      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E) + '}, ' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
+      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}, v{:01x}'.format(self.C, self.D, self.E) + '}, ' + self.BBBB.name + ', ' + self.HHHH.shorty
     if self.A == 2:
-      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}'.format(self.C, self.D) + '}, ' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()
+      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}, v{:01x}'.format(self.C, self.D) + '}, ' + self.BBBB.name + ', ' + self.HHHH.shorty
     if self.A == 1:
-      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}'.format(self.C) + '}, ' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()                                                   
+      return '{} '.format(self.get_opcode_string()) + '{' + 'v{:01x}'.format(self.C) + '}, ' + self.BBBB.name + ', ' + self.HHHH.shorty                                                 
     return 'INVALID FORMAT INSTRUCTION45CC'
 
+  def set_ref_item(self):
+    self.BBBB = self.manager.get_method_item_by_index(self.BBBB)
+    self.HHHH = self.manager.get_proto_item_by_index(self.HHHH)
+  
   def from_string(self):
     pass
 
@@ -635,16 +719,20 @@ class Instruction4rcc(Instruction):
   def as_byte_stream(self):
     pass
   
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(self.AA)
     stream.write_ubyte(self.op)
-    stream.write_ushort(self.BBBB)
+    stream.write_ushort(manager.get_section(SECTION_METHOD).get_item_index(self.BBBB))
     stream.write_ushort(self.CCCC)
-    stream.write_ushort(self.HHHH)
+    stream.write_ushort(manager.get_section(SECIONT_PROTO).get_item_index(self.HHHH))
     return len(self) 
+
+  def set_ref_item(self):
+    self.BBBB = self.manager.get_method_item_by_index(self.BBBB)
+    self.HHHH = self.manager.get_proto_item_by_index(self.HHHH)  
   
   def as_string(self):
-    str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:04x} .. v{:04x}'.format(self.CCCC, self.CCCC + self.AA -1) + '}' + self.manager.get_method_by_index(self.BBBB).get_name() + ', ' + self.manager.get_proto_by_index(self.get_HHHH()).get_name()                                             
+    str = '{} '.format(self.get_opcode_string()) + '{' + 'v{:04x} .. v{:04x}'.format(self.CCCC, self.CCCC + self.AA -1) + '}' + self.BBBB.name + ', ' + self.HHHH.shorty                                          
     return str
 
   def from_string(self):
@@ -665,7 +753,7 @@ class Instruction51l(Instruction):
   def as_byte_stream(self):
     pass
 
-  def write_byte_stream(self,stream):
+  def write_byte_stream(self, stream, manager):
     stream.write_ubyte(self.AA)
     stream.write_ubyte(self.op)
     stream.write_ulong(self.BBBBBBBBBBBBBBBB)
@@ -821,18 +909,18 @@ OPCODE_TABLE = [
     [Instruction31i, "const-wide/32"],
     [Instruction51l, "const-wide"],
     [Instruction21h, "const-wide/high16"],
-    [Instruction21c, "const-string", INSTRUCT_TYPE_STRING],
-    [Instruction31c, "const-string/jumbo", INSTRUCT_TYPE_STRING],
-    [Instruction21c, "const-class", INSTRUCT_TYPE_TYPE],
+    [Instruction21c, "const-string", INSTRUCT_TYPE_STRING, SECTION_STRING],
+    [Instruction31c, "const-string/jumbo", INSTRUCT_TYPE_STRING, SECTION_STRING],
+    [Instruction21c, "const-class", INSTRUCT_TYPE_TYPE, SECTION_TYPE],
     [Instruction11x, "monitor-enter"],
     [Instruction11x, "monitor-exit"],
-    [Instruction21c, "check-cast", INSTRUCT_TYPE_TYPE],
-    [Instruction22c, "instance-of", INSTRUCT_TYPE_TYPE],
+    [Instruction21c, "check-cast", INSTRUCT_TYPE_TYPE, SECTION_TYPE],
+    [Instruction22c, "instance-of", INSTRUCT_TYPE_TYPE, SECTION_TYPE],
     [Instruction12x, "array-length"],
-    [Instruction21c, "new-instance", INSTRUCT_TYPE_TYPE],
-    [Instruction22c, "new-array", INSTRUCT_TYPE_TYPE],
-    [Instruction35c, "filled-new-array", INSTRUCT_TYPE_TYPE],
-    [Instruction3rc, "filled-new-array/range", INSTRUCT_TYPE_TYPE],
+    [Instruction21c, "new-instance", INSTRUCT_TYPE_TYPE, SECTION_TYPE],
+    [Instruction22c, "new-array", INSTRUCT_TYPE_TYPE, SECTION_TYPE],
+    [Instruction35c, "filled-new-array", INSTRUCT_TYPE_TYPE, SECTION_TYPE],
+    [Instruction3rc, "filled-new-array/range", INSTRUCT_TYPE_TYPE, SECTION_TYPE],
     [Instruction31t, "fill-array-data"],
     [Instruction11x, "throw"],
     [Instruction10t, "goto"],
@@ -878,46 +966,46 @@ OPCODE_TABLE = [
     [Instruction23x, "aput-byte"],
     [Instruction23x, "aput-char"],
     [Instruction23x, "aput-short"],
-    [Instruction22c, "iget", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iget-wide", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iget-object", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iget-boolean", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iget-byte", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iget-char", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iget-short", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iput", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iput-wide", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iput-object", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iput-boolean", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iput-byte", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iput-char", INSTRUCT_TYPE_FIELD],
-    [Instruction22c, "iput-short", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sget", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sget-wide", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sget-object", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sget-boolean", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sget-byte", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sget-char", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sget-short", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sput", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sput-wide", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sput-object", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sput-boolean", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sput-byte", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sput-char", INSTRUCT_TYPE_FIELD],
-    [Instruction21c, "sput-short", INSTRUCT_TYPE_FIELD],
-    [Instruction35c, "invoke-virtual", INSTRUCT_TYPE_METHOD],
-    [Instruction35c, "invoke-super", INSTRUCT_TYPE_METHOD],
-    [Instruction35c, "invoke-direct", INSTRUCT_TYPE_METHOD],
-    [Instruction35c, "invoke-static", INSTRUCT_TYPE_METHOD],
-    [Instruction35c, "invoke-interface", INSTRUCT_TYPE_METHOD],
+    [Instruction22c, "iget", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iget-wide", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iget-object", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iget-boolean", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iget-byte", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iget-char", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iget-short", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iput", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iput-wide", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iput-object", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iput-boolean", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iput-byte", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iput-char", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction22c, "iput-short", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sget", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sget-wide", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sget-object", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sget-boolean", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sget-byte", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sget-char", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sget-short", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sput", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sput-wide", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sput-object", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sput-boolean", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sput-byte", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sput-char", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction21c, "sput-short", INSTRUCT_TYPE_FIELD, SECTION_FIELD],
+    [Instruction35c, "invoke-virtual", INSTRUCT_TYPE_METHOD, SECTION_METHOD],
+    [Instruction35c, "invoke-super", INSTRUCT_TYPE_METHOD, SECTION_METHOD],
+    [Instruction35c, "invoke-direct", INSTRUCT_TYPE_METHOD, SECTION_METHOD],
+    [Instruction35c, "invoke-static", INSTRUCT_TYPE_METHOD, SECTION_METHOD],
+    [Instruction35c, "invoke-interface", INSTRUCT_TYPE_METHOD, SECTION_METHOD],
     # unused
     [Instruction10x, "nop"],
-    [Instruction3rc, "invoke-virtual/range", INSTRUCT_TYPE_METHOD],
-    [Instruction3rc, "invoke-super/range", INSTRUCT_TYPE_METHOD],
-    [Instruction3rc, "invoke-direct/range", INSTRUCT_TYPE_METHOD],
-    [Instruction3rc, "invoke-static/range", INSTRUCT_TYPE_METHOD],
-    [Instruction3rc, "invoke-interface/range", INSTRUCT_TYPE_METHOD],
+    [Instruction3rc, "invoke-virtual/range", INSTRUCT_TYPE_METHOD, SECTION_METHOD],
+    [Instruction3rc, "invoke-super/range", INSTRUCT_TYPE_METHOD, SECTION_METHOD],
+    [Instruction3rc, "invoke-direct/range", INSTRUCT_TYPE_METHOD, SECTION_METHOD],
+    [Instruction3rc, "invoke-static/range", INSTRUCT_TYPE_METHOD, SECTION_METHOD],
+    [Instruction3rc, "invoke-interface/range", INSTRUCT_TYPE_METHOD, SECTION_METHOD],
     # unused
     [Instruction10x, "nop"],
     [Instruction10x, "nop"],
@@ -1053,10 +1141,10 @@ OPCODE_TABLE = [
     [Instruction10x, "nop"],
     [Instruction35ms, "invoke-polymorphic", INSTRUCT_TYPE_CALL_METHOD, INSTRUCT_TYPE_CALL_PROTO],
     [Instruction3rms, "invoke-custom", INSTRUCT_TYPE_CALL_METHOD, INSTRUCT_TYPE_CALL_PROTO],
-    [Instruction22c, "invoke-polymorphic/range", INSTRUCT_TYPE_CALL_SITE],
-    [Instruction21c, "invoke-custom/range", INSTRUCT_TYPE_CALL_SITE],
-    [Instruction21c, "const-method-handle", INSTRUCT_TYPE_METHOD_HANDLE],
-    [Instruction21c, "const-method-type", INSTRUCT_TYPE_PROTO],
+    [Instruction22c, "invoke-polymorphic/range", INSTRUCT_TYPE_CALL_SITE, SECTION_CALL_SITE],
+    [Instruction21c, "invoke-custom/range", INSTRUCT_TYPE_CALL_SITE, SECTION_CALL_SITE],
+    [Instruction21c, "const-method-handle", INSTRUCT_TYPE_METHOD_HANDLE, SECTION_METHOD_HANDLE],
+    [Instruction21c, "const-method-type", INSTRUCT_TYPE_PROTO, SECTION_PROTO],
 
 ]
     #unused

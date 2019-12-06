@@ -859,6 +859,9 @@ class DexManager(object):
     self.field_list = []
     self.method_list = []
     self.class_def_list = []
+    self.method_item_list = {}
+    self.field_item_list = {}
+    self.proto_item_list = {}
     
   def get_string(self, index):
     return self.string_list[index]
@@ -876,6 +879,15 @@ class DexManager(object):
     return self.method_list[index]
   def get_class_def_by_index(self, index):
     return self.class_def_list[index]
+  def get_proto_dex_item_by_index(self, index):
+    return self.proto_item_list[self.string_list[self.proto_list[index].shorty_idx]]
+  def get_method_dex_item_by_index(self, index):
+    return self.method_item_list[self.type_list[self.method_list[index].class_idx] + \
+      self.string_list[self.method_list[index].name_idx] + \
+      self.string_list[self.proto_list[self.method_list[index].proto_idx].shorty_idx]]
+  def get_field_dex_item_by_index(self, index):
+    return self.field_item_list[self.string_list[self.field_list[index].name_idx] + self.type_list[self.field_list[index].class_idx]]
+
 
 class HeaderItem(DexItem):
   descriptor = {

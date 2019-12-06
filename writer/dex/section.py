@@ -1,3 +1,4 @@
+from collections import OrderedDict
 
 SECTION_STRING = 1
 SECTION_TYPE = 2
@@ -46,7 +47,7 @@ class Section(object):
 
 class StringSection(Section):
   def __init__(self, section_):
-    self.string_map = {}
+    self.string_map = OrderedDict()
     self.index = 0
     self.section_ = section_
   def add_item(self, value):
@@ -54,15 +55,15 @@ class StringSection(Section):
     self.string_map[value] = self.index # set id
     self.index += 1
   def get_item(self, value):
-    for object_item, idx in self.string_map.items():
-      if idx == value:
-        return object_item
+    return list(self.string_map.keys())[value]
+  def get_items(self):
+    return list(self.string_map.keys())
   def get_item_index(self, value):
     return self.string_map[value]    
      
 class TypeSection(Section):
   def __init__(self, section_manager):
-    self.type_map = {}
+    self.type_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
     self.offset = 0
@@ -70,45 +71,45 @@ class TypeSection(Section):
     self.type_map[dex_type] = self.index # set id
     self.index += 1
   def get_item(self, value):
-    for object_item, idx in self.type_map.items():
-      if idx == value:
-        return object_item
+    return list(self.type_map.keys())[value]
+  def get_items(self):
+    return list(self.type_map.keys())
   def get_item_index(self, value):
     return self.type_map[value]    
 
 class ProtoSection(Section):
   def __init__(self, section_manager):
-    self.proto_map = {}
+    self.proto_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, dex_proto):
     self.proto_map[dex_proto] = self.index # set id
     self.index += 1
   def get_item(self, value):
-    for object_item, idx in self.proto_map.items():
-      if idx == value:
-        return object_item
+    return list(self.proto_map.keys())[value]
+  def get_items(self):
+    return list(self.proto_map.keys())
   def get_item_index(self, value):
     return self.proto_map[value]
 
 class FieldSection(Section):
   def __init__(self, section_manager):
-    self.field_map = {}
+    self.field_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, dex_field):
     self.field_map[dex_field] = self.index # set id
     self.index += 1
   def get_item(self, value):
-    for object_item, idx in self.field_map.items():
-      if idx == value:
-        return object_item
+    return list(self.field_map.keys())[value]
+  def get_items(self):
+    return list(self.field_map.keys())
   def get_item_index(self, value):
     return self.field_map[value]
     
 class MethodSection(Section):
   def __init__(self, section_manager):
-    self.method_map = {}
+    self.method_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, dex_method):
@@ -123,16 +124,16 @@ class MethodSection(Section):
 
 class ClassSection(Section):
   def __init__(self, section_manager):
-    self.class_map = {}
+    self.class_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, dex_class):
     self.class_map[dex_class] = self.index # set id
     self.index += 1
   def get_item(self, value):
-    for object_item, idx in self.class_map.items():
-      if idx == value:
-        return object_item
+    return list(self.class_map.keys())[value]
+  def get_items(self):
+    return list(self.class_map.keys())
   def get_item_index(self, value):
     return self.class_map[value]    
 
@@ -144,16 +145,16 @@ class MethodHandleSection(Section):
 
 class TypeListSection(Section):
   def __init__(self, section_manager):
-    self.type_list_map = {}
+    self.type_list_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, types):
     self.type_list_map[types] = self.index # set id
     self.index += 1
   def get_item(self, value):
-    for object_item, idx in self.type_list_map.items():
-      if idx == value:
-        return object_item
+    return list(self.type_list_map.keys())[value]
+  def get_items(self):
+    return list(self.type_list_map.keys())
   def get_item_index(self, value):
     return self.type_list_map[value]    
     
@@ -162,27 +163,31 @@ class DebugSection(Section):
 
 class CodeSection(Section):
   def __init__(self, section_manager):
-    self.code_map = {}
+    self.code_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, value):
     self.code_map[value] = self.index # set id
     self.index += 1
   def get_item(self, value):
-    pass
+    return list(self.code_map.keys())[value]
+  def get_items(self):
+    return list(self.code_map.keys())
   def get_item_index(self, value):
     return self.code_map[value]    
 
 class ClassDataSection(Section):
   def __init__(self, section_manager):
-    self.class_data_map = {}
+    self.class_data_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, value):
     self.class_data_map[value] = self.index # set id
     self.index += 1
   def get_item(self, value):
-    pass
+    return list(self.class_data_map.keys())[value]
+  def get_items(self):
+    return list(self.class_data_map.keys())
   def get_item_index(self, value):
     return self.class_data_map[value]    
 
@@ -191,7 +196,7 @@ class MapSection(Section):
 
 class EncodedArraySection(Section):
   def __init__(self, section_manager):
-    self.encoded_array_map = {}
+    self.encoded_array_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, value):
@@ -200,7 +205,7 @@ class EncodedArraySection(Section):
 
 class AnnotationSection(Section):
   def __init__(self, section_manager):
-    self.annotation_map = {}
+    self.annotation_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, dex_annotation):
@@ -209,7 +214,7 @@ class AnnotationSection(Section):
 
 class AnnotationSetSection(Section):
   def __init__(self, section_manager):
-    self.annotation_set_map = {}
+    self.annotation_set_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, value):
@@ -218,7 +223,7 @@ class AnnotationSetSection(Section):
 
 class AnnotationDirectorySection(Section):
   def __init__(self, section_manager):
-    self.annotation_dir_map = {}
+    self.annotation_dir_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, value):
@@ -227,7 +232,7 @@ class AnnotationDirectorySection(Section):
 
 class AnnotationSetRefSection(Section):
   def __init__(self, section_manager):
-    self.annotation_set_ref_map = {}
+    self.annotation_set_ref_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
   def add_item(self, value):
