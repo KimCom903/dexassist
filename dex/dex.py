@@ -869,6 +869,7 @@ class DexManager(object):
     self.externel_field_list = []
     self.externel_string_list = set()
     self.externel_proto_list = set()
+    self.externel_class_list = {}
     
   def get_string(self, index):
     return self.string_list[index]
@@ -906,7 +907,7 @@ class DexManager(object):
           parameter_type_idx = type_item.type_idx
           type_info = self.type_list[parameter_type_idx]
           parameter.append(type_info)
-      m = normalize.DexMethod(self.type_list[self.method_list[index].class_idx], method_name, 0, proto_shorty, return_type, parameter, 0)
+      m = self.create_method(self.type_list[self.method_list[index].class_idx], method_name, proto_shorty, return_type, parameter)
       self.externel_proto_list.add(m.create_proto())
       self.externel_method_list.append(m)
       self.externel_type_list.add(self.type_list[self.method_list[index].class_idx])
@@ -927,12 +928,28 @@ class DexManager(object):
       target_class = self.type_list[target.class_idx]
       target_name = self.string_list[target.name_idx]
       target_type = self.type_list[target.type_idx]
-      f = normalize.DexField(target_class, target_name, target_type, 0)
+      f = self.create_field(target_class, target_name, target_type)
       self.externel_type_list.add(target_class)
       self.externel_string_list.add(target_class)
       self.externel_field_list.append(f)
       return f
 
+  def create_method(self, class_name, method_name, proto_shorty, return_type, parameter):
+    if class_name in self.externel_class_list.keys():
+      return normalize.DexMethod(self.externel_class_list[class_name], method_name, 0, proto_shorty, return_type, parameter, 0)
+    nclass = normalize.DexClassItem()
+    nclass.name = class_name
+    self.externel_class_list[class_name] = nclass
+    return normalize.DexMethod(nclass, method_name, 0, proto_shorty, return_type, parameter, 0)
+    
+
+  def create_field(self, class_name, target_name, target_type):
+    if class_name in self.externel_class_list.keys():
+      return normalize.DexField(self.externel_class_list[class_name], target_name, target_type, 0)
+    nclass = normalize.DexClassItem()
+    nclass.name = class_name
+    self.externel_class_list[class_name] = nclass
+    return normalize.DexField(nclass, target_name, target_type, 0)
 
 class HeaderItem(DexItem):
   descriptor = {
