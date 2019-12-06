@@ -8,6 +8,9 @@ except:
 
 from writer.dex.util import InstructionUtil
 
+from writer.dex.stream import OutputStream
+from writer.dex.stream import TempOutputStream
+
 NO_INDEX = -1
 NO_OFFSET = 0
 
@@ -79,8 +82,9 @@ def get_parameter_register_count(parameters, is_static):
   return reg_count
 
 class SectionManager(object):
-  def __init__(self):
+  def __init__(self, manager):
     self.section_map = {}
+    self.externel_manager = manager
   def get_section(self, key):
     return self.section_map[key]
 
@@ -90,6 +94,8 @@ class SectionManager(object):
     for clazz in dex_pool:
       p = clazz.get_related_strings()
       x.update(p)
+    for string_ in self.externel_manager.externel_string_list:
+      x.add(string_)
     x = list(x)
     x.sort()
     for strings in x:
@@ -104,21 +110,27 @@ class SectionManager(object):
       for field in clazz.fields:
         type_list.add(field.type)
       for method in clazz.methods:
-        type_list.add(method.type)
+        type_list.add(method.return_type)
+        for parameter in method.params:
+          type_list.add(parameter)
+    for type_ in self.externel_manager.externel_type_list:
+      type_list.add(type_)
     x = list(type_list)
     x.sort()
     for types in x:
       section.add_item(types)
     self.section_map[SECTION_TYPE] = section
+    print(section.type_map)
 
   def build_proto_section(self, dex_pool):
     section = ProtoSection(self)
     proto_list = set()
     for clazz in dex_pool:
       for method in clazz.methods:
-        proto_list.add(method.signature)
+        proto_list.add(method.proto)
+    for proto_ in self.externel_manager.externel_proto_list:
+      proto_list.add(proto_)
     x = list(proto_list)
-    x.sort()
     for protos in x:
       section.add_item(protos)
     self.section_map[SECTION_PROTO] = section
@@ -129,6 +141,8 @@ class SectionManager(object):
     for clazz in dex_pool:
       for field in clazz.fields:
         field_list.add(field)
+    for field_ in self.externel_manager.externel_field_list:
+      field_list.add(field_)
     x = list(field_list)
     for field in x:
       section.add_item(field)
@@ -140,6 +154,8 @@ class SectionManager(object):
     for clazz in dex_pool:
       for method in clazz.methods:
         method_list.add(method)
+    for method_ in self.externel_manager.externel_method_list:
+      method_list.add(method_)
     x = list(method_list)
     for method in x:
       section.add_item(method)
@@ -167,16 +183,26 @@ class SectionManager(object):
     self.section_map[SECTION_CLASS] = section
   
   def build_call_site_id_section(self, dex_pool): # pass, for reflection
-    pass
+    section = CallSiteSection(self)
+    self.section_map[SECTION_CALL_SITE] = section
 
   def build_method_handle_section(self, dex_pool): # pass, for reflection
-    pass
+    section = MethodHandleSection(self)
+    self.section_map[SECTION_METHOD_HANDLE] = section
 
   def build_map_list_section(self, dex_pool):
     pass
 
   def build_type_list_section(self, dex_pool):
-    pass
+    section = TypeListSection(self)
+    clazz_list = set()
+    for clazz in dex_pool:
+      section.add_item(clazz.interfaces)
+      for method in clazz.methods:
+        section.add_item(method.proto.parameters)
+    for type_list_ in self.externel_manager.externel_type_list_list:
+      section.add_item(type_list_)
+    self.section_map[SECTION_TYPE_LIST] = section
 
   def build_annotation_set_ref_list_section(self, dex_pool):
     pass
@@ -212,7 +238,7 @@ class SectionManager(object):
 
 class DexWriter(object):
   def __init__(self, dex_class_pool):
-    self.manager = SectionManager()
+    self.manager = SectionManager(dex_class_pool.manager)
     self.dex_class_pool = dex_class_pool
     self.multidex_policy = DefaultMultiDexPolicy()
     self.dex_pool_dict = {}
@@ -242,6 +268,7 @@ class DexWriter(object):
     self.num_debug_info_items = 0
     self.num_code_items = 0
     self.num_class_data_items = 0
+
   def write(self, stream):
     for clazz in self.dex_class_pool.classes:
       clazz.fix()
@@ -325,23 +352,26 @@ class DexWriter(object):
     self.string_data_section_offset = offset_writer.get_position()
     for item in self.get_section(SECTION_STRING).get_items():
       index_writer.write_int(offset_writer.get_position())
-      string_val = item.get_value()
-      offset_writer.write_uleb128(len(string_val))
+      string_val = item
+      offset_writer.write_uleb(len(string_val))
       offset_writer.write_string(string_val)
-      offset_writer.write(0)
+      offset_writer.write_ubyte(0)
 
   def write_types(self, index_writer):
     self.type_section_offset = index_writer.get_position()
     for item in self.get_section(SECTION_TYPE).get_items():
-      index_writer.write_int(self.get_section(SECTION_STRING).get_item_index(
-        item.get_value()
-      ))
+      try:
+        index_writer.write_int(self.get_section(SECTION_STRING).get_item_index(
+        item
+        ))
+      except:
+        pass
 
   def write_debug_and_code_items(self, offset_writer, deferred_stream):
     ehbuf = TempOutputStream()
     self.debug_section_offset = offset_writer.get_position()
     # pass write debug section!
-    code_writer = deferred_stream
+    code_writer = TempOutputStream()
     for clazz in self.get_section(SECTION_CLASS).get_items():
       direct_methods = clazz.get_direct_methods()
       virtual_methods = clazz.get_virtual_methods()
@@ -422,7 +452,7 @@ class DexWriter(object):
     
     for try_block in try_blocks:
       handler_map[try_block.get_exception_handlers()] = 0
-    ehbuf.write_uleb128(len(handler_map))
+    ehbuf.write_uleb(len(handler_map))
 
     for try_block in try_blocks:
       code_writer.write_int(try_block.get_start_addr())
@@ -448,11 +478,11 @@ class DexWriter(object):
         code_addr = eh.get_handler_addr()
         if exception_type is not None:
           # regular
-          ehbuf.write_uleb128(self.get_section(SECTION_TYPE).get_item_index(exception_type))
-          ehbuf.write_uleb128(code_addr)
+          ehbuf.write_uleb(self.get_section(SECTION_TYPE).get_item_index(exception_type))
+          ehbuf.write_uleb(code_addr)
         else:
           #catch(Throwable)
-          ehbuf.write_uleb128(code_addr)
+          ehbuf.write_uleb(code_addr)
     if ehbuf.get_position() > 0:
       eubuf.write_to(code_writer)
 
@@ -539,15 +569,14 @@ class DexWriter(object):
       )
       writer.write_int(
         self.get_section(SECTION_TYPE).get_item_index(
-          item.return_type()
+          item.return_type
         )
       )
       writer.write_int(
         self.get_section(SECTION_TYPE_LIST).get_item(
-          item.parameters()
+          item.parameters
         ).offset
       )
-
 
 
   def write_fields(self, writer):
@@ -630,10 +659,10 @@ class DexWriter(object):
 
     self.num_class_data_items += 1
 
-    offset_writer.write_uleb128(len(static_fields))
-    offset_writer.write_uleb128(len(instance_fields))
-    offset_writer.write_uleb128(len(direct_methods))
-    offset_writer.write_uleb128(len(virtual_methods))
+    offset_writer.write_uleb(len(static_fields))
+    offset_writer.write_uleb(len(instance_fields))
+    offset_writer.write_uleb(len(direct_methods))
+    offset_writer.write_uleb(len(virtual_methods))
 
     self.write_encoded_fields(offset_writer, static_fields)
     self.write_encoded_fields(offset_writer, instance_fields)
@@ -648,8 +677,8 @@ class DexWriter(object):
     
     for field in field_list:
       index = field_section.get_item_index(field)
-      offset_writer.write_uleb128(index - prev_index)
-      offset_writer.write_uleb128(field.access_flags)
+      offset_writer.write_uleb(index - prev_index)
+      offset_writer.write_uleb(field.access_flags)
       prev_index = index
   
   def write_encoded_methods(self, offset_writer, method_list):
@@ -657,9 +686,9 @@ class DexWriter(object):
     method_section = self.get_section(SECTION_METHOD)
     for method in method_list:
       index = method_section.get_item_index(method)
-      offset_writer.write_uleb128(index - prev_index)
-      offset_writer.write_uleb128(method.access_flags)
-      offset_writer.write_uleb128(method.code_item_offset)
+      offset_writer.write_uleb(index - prev_index)
+      offset_writer.write_uleb(method.access_flags)
+      offset_writer.write_uleb(method.code_item_offset)
       prev_index = index
 
   def write_call_sites(self, writer):
@@ -676,7 +705,7 @@ class DexWriter(object):
     for arr in encoded_array_section.get_items():
       arr.offset = writer.position
       encoded_array = arr.values
-      writer.write_uleb128(len(arr.values))
+      writer.write_uleb(len(arr.values))
       for val in encoded_array:
         self.write_encoded_value(writer, val)
 
@@ -690,11 +719,11 @@ class DexWriter(object):
     for ann in annotation_section.get_items():
       ann.offset = writer.position
       writer.write_ubyte(ann.visibility)
-      writer.write_uleb128(type_section.get_item_index(ann.type))
+      writer.write_uleb(type_section.get_item_index(ann.type))
       elems = ann.elements
-      writer.write_uleb128(len(elems))
+      writer.write_uleb(len(elems))
       for elem in elems:
-        writer.write_uleb128(string_section.get_item_index(elem.name))
+        writer.write_uleb(string_section.get_item_index(elem.name))
         self.write_encoded_value(writer, elem.value)    
 
 
@@ -758,9 +787,9 @@ class DexWriter(object):
     for clazz in dex_buf:
       max_size = len(clazz.fields) * 8 + len(clazz.methods) * 16
       if max_size > 65536:
-        tmp_buffer = bytearray(max_size)
+        tmp_buf = bytearray(max_size)
       
-      tmp_buffer = BufferStream(tmp_buffer)
+      tmp_buffer = TempOutputStream(tmp_buf)
       field_annotations = 0
       method_annotations = 0
       param_annotations = 0
@@ -799,7 +828,7 @@ class DexWriter(object):
       writer.write_int(field_annotations)
       writer.write_int(method_annotations)
       writer.write_int(param_annotations)
-      writer.write(tmp_buffer.buf[0:tmp_buffer.position])
+      tmp_buffer.write_to(writer)
 
   def write_encoded_value(self, writer, val):
     writer.write(val.as_byte())

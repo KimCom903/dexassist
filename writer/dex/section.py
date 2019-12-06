@@ -121,6 +121,8 @@ class MethodSection(Section):
         return object_item
   def get_item_index(self, value):
     return self.method_map[value]  
+  def get_items(self):
+    return list(self.method_map.keys())
 
 class ClassSection(Section):
   def __init__(self, section_manager):
@@ -138,10 +140,16 @@ class ClassSection(Section):
     return self.class_map[value]    
 
 class CallSiteSection(Section):
-  pass
+  def __init__(self, section_manager):
+    self.call_site_map = OrderedDict()
+    self.index = 0
+    self.section_ = section_manager
 
 class MethodHandleSection(Section):
-  pass
+  def __init__(self, section_manager):
+    self.method_handle_map = OrderedDict()
+    self.index = 0
+    self.section_ = section_manager
 
 class TypeListSection(Section):
   def __init__(self, section_manager):
@@ -149,14 +157,30 @@ class TypeListSection(Section):
     self.index = 0
     self.section_ = section_manager
   def add_item(self, types):
-    self.type_list_map[types] = self.index # set id
+    types = TypeListItem(types)
+    self.type_list_map[types] = types # set id
     self.index += 1
   def get_item(self, value):
-    return list(self.type_list_map.keys())[value]
+    value = TypeListItem(value)
+    return self.type_list_map[value]
   def get_items(self):
-    return list(self.type_list_map.keys())
+    return self.type_list_map.keys()
   def get_item_index(self, value):
-    return self.type_list_map[value]    
+    value = "".join(value)
+    return self.type_list_map[value]   
+
+class TypeListItem(object):
+  def __init__(self, value):
+    self.list = value
+    self.offset = 0
+  def __hash__(self):
+    return hash("".join(self.list))
+  def __eq__(self,othr):
+    if hash(self) == hash(othr):
+      return True
+    return False
+  def get_types(self):
+    return self.list
     
 class DebugSection(Section):
   pass
