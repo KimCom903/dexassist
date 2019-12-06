@@ -1,16 +1,59 @@
+from zlib import adler32
+import struct
+import inspect
+
+UINT_FMT = '<I'
+USHORT_FMT = '<H'
+INT_FMT = '<i'
+SHORT_FMT = '<h'
+LONG_FMT = '<l'
+ULONG_FMT = '<L'
+LONGLONG_FMT = '<q'
+ULONGLONG_FMT = '<Q'
+UBYTE_FMT = '<B'
+BYTE_FMT = '<b'
+
+def calc_adler32(data, length):
+  a = 1
+  b = 0
+  for i in range(length):
+    a = (a + ord(data[i])) % MOD_ADLER
+    b = (b + a) % MOD_ADLER
+  return (b << 16) | a
+
+
 class BaseWriteStream(object):
   def __init__(self,buf,base_offset):
     self.position = base_offset
     self.buf = buf
 
+  def count_bytes(self, value, is_short_length):
+    result = 0
+    length = len(value)
+    i = 0
+    while(i < length):
+      ch = ord(value[i])
+      if ch != 0 and ch <= 127: 
+        result += 1
+      elif ch <= 2047:
+        result += 2
+      else:
+        result += 3
+      
+      if not is_short_length or result <= 65535:
+        i += 1
+    
+    return result
+
   def encode(self, value):
-    ret = bytearray(self.count_bytes(True))
+    value = list(value)
+    ret = bytearray(self.count_bytes(value, True))
     length = len(value)
     i = 0
     offset = 0
     offset2 = 0
     while i < length:
-      ch = value[i]
+      ch = ord(value[i])
       if ch != 0 and ch <= 127:
         offset = offset2 + 1
         ret[offset2] = ch
@@ -35,29 +78,29 @@ class BaseWriteStream(object):
     return struct.pack(fmt, value)
   
   def write_ubyte(self, value):
-    self.write_byte_array( as_byte(UBYTE_FMT, value))
+    self.write_byte_array( self.as_byte(UBYTE_FMT, value))
     self.position += 1
   def write_short(self, value):
-    self.write_byte_array( as_byte(SHORT_FMT, value))
+    self.write_byte_array( self.as_byte(SHORT_FMT, value))
     self.position += 2
   def write_ushort(self, value):
-    self.write_byte_array( as_byte(USHORT_FMT, value))
+    self.write_byte_array( self.as_byte(USHORT_FMT, value))
     self.position += 2
   def write_int(self, value):
-    self.write_byte_array( as_byte(INT_FMT, value))
+    self.write_byte_array( self.as_byte(INT_FMT, value))
     self.position += 4
   def write_uint(self, value):
-    self.write_byte_array( as_byte(UINT_FMT, value))
+    self.write_byte_array( self.as_byte(UINT_FMT, value))
     self.position += 4
   def write_ulong(self, value):
-    self.write_byte_array( as_byte(ULONGLONG_FMT, value))
+    self.write_byte_array( self.as_byte(ULONGLONG_FMT, value))
     self.position += 8
   def write_long(self, value):
-    self.write_byte_array( as_byte(LONGLONG_FMT, value))
+    self.write_byte_array( self.as_byte(LONGLONG_FMT, value))
     self.position += 8
   def write_string(self, value):
     val = self.encode(value)
-    self.write_byte_array( val)
+    self.write_byte_array(val)
     self.position += len(val)
 
   def write_uleb(self, value):
@@ -98,9 +141,10 @@ class BaseWriteStream(object):
     self.index = index
 
 
-
-
 class OutputStream(BaseWriteStream):
+  def __init__(self,buf,base_offset):
+    self.position = base_offset
+    self.buf = buf
   
   def close(self):
     f = open("Classes.dex", 'w')
@@ -113,7 +157,7 @@ class OutputStream(BaseWriteStream):
   def align(self):
     zeros = (-self.get_position()) & 3
     if zeros > 0:
-      write_ubyte(0)
+      self.write_ubyte(0)
 
 
 class TempOutputStream(BaseWriteStream):
@@ -121,7 +165,7 @@ class TempOutputStream(BaseWriteStream):
     self.buf = bytearray()
     self.position = 0
   
-  def write_to(self,stream):
+  def write_to(self, stream):
     stream.buf += self.buf
     stream.position += self.position
  
@@ -137,7 +181,7 @@ class TempOutputStream(BaseWriteStream):
   def align(self):
     zeros = (-self.get_position()) & 3
     if zeros > 0:
-      write_ubyte(0)    
+      self.write_ubyte(0)    
 
 
 class BufferStream(BaseWriteStream):

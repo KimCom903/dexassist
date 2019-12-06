@@ -48,7 +48,7 @@ class Instruction(object):
     if op_type == INSTRUCT_TYPE_STRING:
       return self.manager.get_string_by_index(index)
     elif op_type == INSTRUCT_TYPE_TYPE:
-      ret = self.manager.get_type_dex_item_by_index(index)
+      ret = self.manager.get_type(index)
       if len(ret) > 1: return ret
       if ret == 'v':
         return 'void'

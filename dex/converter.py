@@ -10,7 +10,7 @@ except:
 
 class DexConverter(object):
   def get_dex(self, header, manager):
-    dex = normalize.Dex()
+    dex = normalize.Dex(manager)
     for x in manager.class_def_list:
       dex.add_class(self.create_dex_class(x, manager))
     for clazz in dex.classes:
@@ -127,22 +127,21 @@ class DexConverter(object):
       access_flags = m.access_flags
       code = m.code
       proto = manager.proto_list[proto_idx]
-      dict_key = manager.string_list[proto.shorty_idx]
+      proto_shorty = manager.string_list[proto.shorty_idx]
       return_type_idx = proto.return_type_idx
       parameter = []
+      return_type = manager.type_list[return_type_idx]
       if proto.type_list:
         for type_item in proto.type_list.list:
           parameter_type_idx = type_item.type_idx
           type_info = manager.type_list[parameter_type_idx]
           parameter.append(type_info)
-      method_signature = '{}({})'.format(manager.type_list[return_type_idx] , ''.join(parameter))
-
-      x = self.create_dex_method(manager, item, method_name, access_flags, method_signature, code)
+      x = self.create_dex_method(manager, item, method_name, access_flags, proto_shorty, parameter, return_type, code)
       x.annotations = method_annotation_table.get(method_idx, [])
       x.param_annotations = param_annotation_table.get(method_idx, [])
       item.methods.append(x)
-      manager.method_item_list[item.type + method_name + dict_key] = x
-      manager.proto_item_list[dict_key] = x.create_proto()
+      manager.method_item_list[item.type + method_name + proto_shorty] = x
+      manager.proto_item_list[proto_shorty] = x.create_proto()
     
     method_idx = 0
     for m in cdi.data.virtual_methods:
@@ -158,22 +157,21 @@ class DexConverter(object):
       code = m.code
       
       proto = manager.proto_list[proto_idx]
+      proto_shorty = manager.string_list[proto.shorty_idx]
       return_type_idx = proto.return_type_idx
       parameter = []
+      return_type = manager.type_list[return_type_idx]
       if proto.type_list:
         for type_item in proto.type_list.list:
           parameter_type_idx = type_item.type_idx
           type_info = manager.type_list[parameter_type_idx]
           parameter.append(type_info)
-      
-      method_signature = '{}({})'.format(manager.type_list[return_type_idx] , ''.join(parameter))
-      x = self.create_dex_method(manager, item, method_name, access_flags, method_signature, code)
+      x = self.create_dex_method(manager, item, method_name, access_flags, proto_shorty, parameter, return_type, code)
       x.annotations = method_annotation_table.get(method_idx, [])
       x.param_annotations = param_annotation_table.get(method_idx, [])
       item.methods.append(x)
-      manager.method_item_list[item.type + method_name + dict_key] = x
-      manager.proto_item_list[dict_key] = x.create_proto()
-
+      manager.method_item_list[item.type + method_name + proto_shorty] = x
+      manager.proto_item_list[proto_shorty] = x.create_proto()
     return item
 
 
@@ -182,12 +180,12 @@ class DexConverter(object):
     f = normalize.DexField(parent, field_name, type_name, access_flags)
     return f
 
-  def create_dex_method(self, manager, parent, method_name, access_flags, signature, code):
+  def create_dex_method(self, manager, parent, method_name, access_flags, proto_shorty, parameter, return_type, code):
     x = None
     if code:
       print('method : {}{}'.format(parent, method_name))
       x = code_to_editor(manager, code)
-    m = normalize.DexMethod(parent, method_name, access_flags, signature, x)
+    m = normalize.DexMethod(parent, method_name, access_flags, proto_shorty, parameter, return_type, x)
     return m
 
 

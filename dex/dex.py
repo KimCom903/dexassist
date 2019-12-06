@@ -1,6 +1,7 @@
 from zlib import adler32
 import struct
 import inspect
+import normalize
 """
 parse dex
 
@@ -863,6 +864,11 @@ class DexManager(object):
     self.field_item_list = {}
     self.proto_item_list = {}
     self.externel_class_list = []
+    self.externel_method_list = []
+    self.externel_type_list = set()
+    self.externel_field_list = []
+    self.externel_string_list = set()
+    self.externel_proto_list = set()
     
   def get_string(self, index):
     return self.string_list[index]
@@ -883,11 +889,49 @@ class DexManager(object):
   def get_proto_dex_item_by_index(self, index):
     return self.proto_item_list[self.string_list[self.proto_list[index].shorty_idx]]
   def get_method_dex_item_by_index(self, index):
-    return self.method_item_list[self.type_list[self.method_list[index].class_idx] + \
-      self.string_list[self.method_list[index].name_idx] + \
-      self.string_list[self.proto_list[self.method_list[index].proto_idx].shorty_idx]]
+    try:
+      return self.method_item_list[self.type_list[self.method_list[index].class_idx] + \
+        self.string_list[self.method_list[index].name_idx] + \
+        self.string_list[self.proto_list[self.method_list[index].proto_idx].shorty_idx]]
+    except:
+      target = self.method_list[index]
+      method_name = self.string_list[target.name_idx]
+      proto = self.proto_list[target.proto_idx]
+      proto_shorty = self.string_list[proto.shorty_idx]
+      return_type_idx = proto.return_type_idx
+      parameter = []
+      return_type = self.type_list[return_type_idx]
+      if proto.type_list:
+        for type_item in proto.type_list.list:
+          parameter_type_idx = type_item.type_idx
+          type_info = self.type_list[parameter_type_idx]
+          parameter.append(type_info)
+      m = normalize.DexMethod(self.type_list[self.method_list[index].class_idx], method_name, 0, proto_shorty, return_type, parameter, 0)
+      self.externel_proto_list.add(m.create_proto())
+      self.externel_method_list.append(m)
+      self.externel_type_list.add(self.type_list[self.method_list[index].class_idx])
+      self.externel_type_list.add(return_type)
+      self.externel_string_list.add(method_name)
+      self.externel_string_list.add(self.type_list[self.method_list[index].class_idx])
+      self.externel_string_list.add(return_type)
+      for it in parameter:
+        self.externel_string_list.add(it)
+        self.externel_type_list.add(it)
+      return m
+
   def get_field_dex_item_by_index(self, index):
-    return self.field_item_list[self.string_list[self.field_list[index].name_idx] + self.type_list[self.field_list[index].class_idx]]
+    try:
+      return self.field_item_list[self.string_list[self.field_list[index].name_idx] + self.type_list[self.field_list[index].class_idx]]
+    except:
+      target = self.field_list[index]
+      target_class = self.type_list[target.class_idx]
+      target_name = self.string_list[target.name_idx]
+      target_type = self.type_list[target.type_idx]
+      f = normalize.DexField(target_class, target_name, target_type, 0)
+      self.externel_type_list.add(target_class)
+      self.externel_string_list.add(target_class)
+      self.externel_field_list.append(f)
+      return f
 
 
 class HeaderItem(DexItem):

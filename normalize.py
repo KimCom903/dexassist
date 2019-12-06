@@ -1,8 +1,9 @@
 NO_OFFSET = -1
 
 class Dex(object):
-  def __init__(self):
+  def __init__(self, manager):
     self.classes = []
+    self.manager = manager
 
   def add_class(self, clazz):
     self.classes.append(clazz)
@@ -69,26 +70,30 @@ class DexField(object):
     print(ret)
     return ret
   def __hash__(self):
-    return hash(self.name + self.type + self.clazz)
+    return hash(self.name + self.clazz.name)
   def __eq__(self,othr):
     if(othr.hash() == self.hash()):
       return True
     return False
     
 class DexMethod(object):
-  def __init__(self, parent, method_name, access_flags, signature, editor):
+  def __init__(self, parent, method_name, access_flags, proto_shorty, parameter, return_t, editor):
     self.annotations = []
     self.name = method_name
     self.clazz = parent
-    self.return_type, self.params = self.parse_signature(signature)
-    self.signature = signature
-    print('signature : {}'.format(signature))
+    self.return_type, self.params = return_t, parameter
+    self.shorty = proto_shorty
+    self.make_signature()
+    print('signature : {}'.format(self.signature))
     self.editor = editor
   def get_editor(self):
     return self.editor
+
+  def make_signature(self):
+    self.signature = '{}({})'.format(self.return_type , ''.join(self.params))
     
   def create_proto(self):
-    self.proto = DexProto(self.signature, self.return_type, self.params)
+    self.proto = DexProto(self.shorty, self.return_type, self.params)
     return self.proto
 
   def create_shorty_descriptor(self):
@@ -96,12 +101,6 @@ class DexMethod(object):
 
   def parse_type(self, value):
     pass
-
-  def parse_signature(self, signature):
-    x = signature.split(')')
-    return_type = x[1]
-    params = x[0][1:]
-    return return_type, params
 
   def __str__(self):
     ret = '{}::{} [{}]'.format(self.clazz, self.name, self.signature)
@@ -120,15 +119,15 @@ class DexMethod(object):
     return ret
   
   def __hash__(self):
-    return hash(self.signature)
+    return hash(self.clazz.name + self.name + self.proto.shorty)
   def __eq__(self,othr):
     if(othr.hash() == self.hash()):
       return True
     return False 
   
 class DexProto(object):
-  def __init__(self, signature, return_type, params):
-    self.shorty = signature
+  def __init__(self, shorty, return_type, params):
+    self.shorty = shorty
     self.return_type = return_type
     self.parameters = params
   def __hash__(self):
