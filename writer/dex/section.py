@@ -234,6 +234,11 @@ class AnnotationSection(Section):
     self.section_ = section_manager
   def add_item(self, dex_annotation):
     self.annotation_map[dex_annotation] = self.index # set id
+    self.get_section(SECTION_TYPE).add_item(dex_annotation.type)
+
+    for elem in dex_annotation.elements:
+      self.get_section(SECTION_STRING).add_item(elem.name)
+      self.get_section(SECTION_ENCODED_VALUE).add_item(elem.value)
     self.index += 1 
 
 class AnnotationSetSection(Section):
@@ -243,22 +248,4 @@ class AnnotationSetSection(Section):
     self.section_ = section_manager
   def add_item(self, value):
     self.annotation_set_map[value] = self.index # set id
-    self.index += 1
-
-class AnnotationDirectorySection(Section):
-  def __init__(self, section_manager):
-    self.annotation_dir_map = OrderedDict()
-    self.index = 0
-    self.section_ = section_manager
-  def add_item(self, value):
-    self.annotation_dir_map[value] = self.index # set id
-    self.index += 1
-
-class AnnotationSetRefSection(Section):
-  def __init__(self, section_manager):
-    self.annotation_set_ref_map = OrderedDict()
-    self.index = 0
-    self.section_ = section_manager
-  def add_item(self, value):
-    self.annotation_set_ref_map[value] = self.index # set id
     self.index += 1

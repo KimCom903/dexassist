@@ -146,6 +146,8 @@ class SectionManager(object):
     x = list(field_list)
     for field in x:
       section.add_item(field)
+      if field.value:
+        self.get_section(SECTION_ENCODED_ARRAY).add_item(field.value)
     self.section_map[SECTION_FIELD] = section
   
   def build_method_section(self, dex_pool):
@@ -204,10 +206,12 @@ class SectionManager(object):
       section.add_item(type_list_)
     self.section_map[SECTION_TYPE_LIST] = section
 
-  def build_annotation_set_ref_list_section(self, dex_pool):
+
+
+  def build_annotation_section(self, dex_pool):
     pass
 
-  def build_annotation_set_item(self, dex_pool):
+  def build_annotation_set_section(self, dex_pool):
     pass
 
   def build_class_data_item_section(self, dex_pool):
@@ -223,14 +227,11 @@ class SectionManager(object):
   def build_debug_info_item_section(self, dex_pool):
     pass
 
-  def build_annotation_item_section(self, dex_pool):
-    pass
+
 
   def build_encoded_array_item_section(self, dex_pool):
     pass
-
-  def build_annotations_directory_item_section(self, dex_pool):
-    pass
+  
 
   def build_hiddenapi_class_data_item_section(self, dex_pool): # pass, for reflection
     pass
@@ -266,7 +267,7 @@ class DexWriter(object):
     self.num_annotation_set_ref_items = 0
     self.num_annotation_directory_items = 0
     self.num_debug_info_items = 0
-    self.num_code_items = 0
+    self.num_code_item_items = 0
     self.num_class_data_items = 0
 
   def write(self, stream):
@@ -292,15 +293,13 @@ class DexWriter(object):
     manager.build_method_handle_section(dex_pool) # pass, for reflection
     manager.build_map_list_section(dex_pool)
     manager.build_type_list_section(dex_pool)
-    manager.build_annotation_set_ref_list_section(dex_pool)
-    manager.build_annotation_set_item(dex_pool)
+    manager.build_annotation_section(dex_pool)
+    manager.build_annotation_set_section(dex_pool)
     manager.build_class_data_item_section(dex_pool)
     manager.build_code_item_section(dex_pool)
     manager.build_string_data_item_section(dex_pool)
     manager.build_debug_info_item_section(dex_pool)
-    manager.build_annotation_item_section(dex_pool)
     manager.build_encoded_array_item_section(dex_pool)
-    manager.build_annotations_directory_item_section(dex_pool)
     manager.build_hiddenapi_class_data_item_section(dex_pool)
     data_section_offset = manager.get_data_section_offset()
     buf = bytearray()
@@ -530,12 +529,12 @@ class DexWriter(object):
     self.write_map_item_object(offset_writer, TYPE_LIST, self.get_section(SECTION_TYPE_LIST).size(), self.type_list_section_offset)
     self.write_map_item_object(offset_writer, ENCODED_ARRAY_ITEM, self.get_section(SECTION_ENCODED_ARRAY).size(), self.encoded_array_section_offset)
     self.write_map_item_object(offset_writer, ANNOTATION_ITEM, self.get_section(SECTION_ANNOTATION).size(), self.annotation_section_offset)
-    self.write_map_item_object(offset_writer, ANNOTATION_SET_ITEM, self.get_section(SECTION_ANNOTATION_SET).size(), self.annotation_set_section_offset)
-    self.write_map_item_object(offset_writer, ANNOTATION_SET_REF_LIST, self.get_section(SECTION_ANNOTATION_SET_REF).size(), self.annotation_set_ref_section_offset)
-    self.write_map_item_object(offset_writer, ANNOTATION_DIRECTORY_ITEM, self.get_section(SECTION_ANNOTATION_DIRECTORY).size(), self.annotation_directory_section_offset)
-    self.write_map_item_object(offset_writer, DEBUG_INFO_ITEM, self.get_section(SECTION_DEBUG).size(), self.debug_section_offset)
-    self.write_map_item_object(offset_writer, CODE_ITEM, self.get_section(SECTION_CODE).size(), self.code_section_offset)
-    self.write_map_item_object(offset_writer, CLASS_DATA_ITEM, self.get_section(SECTION_CLASS_DATA).size(), self.class_data_section_offset)
+    self.write_map_item_object(offset_writer, ANNOTATION_SET_ITEM, self.get_section(SECTION_ANNOTATION_SET).size() + 1 if self.should_create_empty_annotation_set() else 0, self.annotation_set_section_offset)
+    self.write_map_item_object(offset_writer, ANNOTATION_SET_REF_LIST, self.num_annotation_set_ref_items, self.annotation_set_ref_section_offset)
+    self.write_map_item_object(offset_writer, ANNOTATION_DIRECTORY_ITEM, self.num_annotation_directory_items, self.annotation_directory_section_offset)
+    self.write_map_item_object(offset_writer, DEBUG_INFO_ITEM, self.num_debug_info_items, self.debug_section_offset)
+    self.write_map_item_object(offset_writer, CODE_ITEM, self.num_code_item_items, self.code_section_offset)
+    self.write_map_item_object(offset_writer, CLASS_DATA_ITEM, self.num_class_data_items, self.class_data_section_offset)
     self.write_map_item_object(offset_writer, MAP_LIST, 1, self.map_section_offset)
 
   def write_map_item_object(self, offset_writer, item_type, size, offset):
