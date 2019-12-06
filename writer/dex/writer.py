@@ -153,7 +153,7 @@ class SectionManager(object):
       for method in clazz.methods:
         method_list.add(method)
     for method_ in self.externel_manager.externel_method_list:
-      field_list.add(method_)
+      method_list.add(method_)
     x = list(method_list)
     for method in x:
       section.add_item(method)
