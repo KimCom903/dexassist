@@ -480,6 +480,7 @@ class EncodedArray(DexItem):
 
 
   def parse_remain(self):
+    self.value_type = 0x1c
     self.values = []
     for x in range(self.size):
       item = EncodedValue(self.manager, self.root_stream, self.base_index + self.read_size)

@@ -12,11 +12,10 @@ SECTION_TYPE_LIST = 9
 SECTION_ENCODED_ARRAY = 10
 SECTION_ANNOTATION = 11
 SECTION_ANNOTATION_SET = 12
-SECTION_ANNOTATION_DIRECTORY = 13
-SECTION_ANNOTATION_SET_REF = 14
+
 SECTION_DEBUG = 15
 SECTION_CODE = 16
-SECTION_CLASS_DATA = 17
+
 SECTION_MAP = 18
 
 
@@ -25,6 +24,14 @@ NOTT writable!
 just provide classes
 """
 class Section(object):
+  def __init__(self, section_manager):
+    self.type_map = OrderedDict()
+    self.index = 0
+    self.section_ = section_manager
+
+  def get_section(self, key):
+    return self.section_.get_section(key)
+
   def get_item(self, value):
     """
     return value of id
@@ -41,7 +48,8 @@ class Section(object):
   
   def get_item_count(self):
     return self.index
-  
+  def add_encoded_value(self, value):
+    return self.section_.add_encoded_value(value)
   def size(self):
     return self.get_item_count()
 
@@ -224,8 +232,16 @@ class EncodedArraySection(Section):
     self.index = 0
     self.section_ = section_manager
   def add_item(self, value):
-    self.encoded_array_map[value] = self.index # set id
+    key = self.hash(value)
+    if key in self.encoded_array_map:
+      return
+    self.encoded_array_map[key] = self.index # set id
     self.index += 1
+    for value in value:
+      self.section_.add_encoded_value(value)
+
+  def hash(self, item):
+    return ''.join(str(x) for x in item)
 
 class AnnotationSection(Section):
   def __init__(self, section_manager):
@@ -237,8 +253,8 @@ class AnnotationSection(Section):
     self.get_section(SECTION_TYPE).add_item(dex_annotation.type)
 
     for elem in dex_annotation.elements:
-      self.get_section(SECTION_STRING).add_item(elem.name)
-      self.get_section(SECTION_ENCODED_VALUE).add_item(elem.value)
+      self.get_section(SECTION_STRING).add_item(elem[0])
+      self.add_encoded_value(elem[1].value)
     self.index += 1 
 
 class AnnotationSetSection(Section):
@@ -247,5 +263,7 @@ class AnnotationSetSection(Section):
     self.index = 0
     self.section_ = section_manager
   def add_item(self, value):
-    self.annotation_set_map[value] = self.index # set id
+    self.annotation_set_map[''.join([str(x) for x in value])] = self.index # set id
     self.index += 1
+    for x in value:
+      self.get_section(SECTION_ANNOTATION).add_item(x)

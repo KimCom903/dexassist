@@ -64,6 +64,10 @@ class DexField(object):
     self.type = type_name
     self.clazz = parent
     self.access_flags = access_flags
+  
+  def is_static(self):
+    self.access_flags & 0x8
+
 
   def __str__(self):
     ret = '{}::{} [{}]'.format(self.clazz, self.name, self.type)
@@ -88,6 +92,7 @@ class DexMethod(object):
     self.clazz = parent
     self.return_type = return_t
     self.params = parameter
+    self.parameters = self.params
     self.shorty = proto_shorty
     self.make_signature()
     print('signature : {}'.format(self.signature))
@@ -150,6 +155,7 @@ class DexAnnotation(object):
     self.target = target
     self.visibility = visibility
     self.type_name = type_name
+    self.type = type_name
     self.elements = key_name_tuples
     self.annotation_offset = NO_OFFSET
     self.annotation_set_offset = NO_OFFSET
@@ -167,7 +173,8 @@ class DexAnnotation(object):
     self.annotation_set_offset = value
     
   def __str__(self):
-    return '{}({})'.format(self.type_name, self.key_name_tuples)
+    return '{}({})'.format(self.type_name, self.elements)
+
 VALUE_TYPE_BYTE = 0x00
 VALUE_TYPE_SHORT = 0x02
 VALUE_TYPE_CHAR = 0x03

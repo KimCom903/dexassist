@@ -56,6 +56,26 @@ SIZE_UINT = 4
 SIZE_USHORT = 2
 
 
+VALUE_TYPE_BYTE = 0x00
+VALUE_TYPE_SHORT = 0x02
+VALUE_TYPE_CHAR = 0x03
+VALUE_TYPE_INT = 0x04
+VALUE_TYPE_LONG = 0x06
+VALUE_TYPE_FLOAT = 0x10
+VALUE_TYPE_DOUBLE = 0x11
+VALUE_TYPE_METHOD_TYPE = 0x15
+VALUE_TYPE_METHOD_HANDLE = 0x16
+VALUE_TYPE_STRING = 0x17
+VALUE_TYPE_TYPE = 0x18
+VALUE_TYPE_FIELD = 0x19
+VALUE_TYPE_METHOD = 0x1a
+VALUE_TYPE_ENUM = 0x1b
+VALUE_TYPE_ARRAY = 0x1c
+VALUE_TYPE_ANNOTATION = 0x1d
+VALUE_TYPE_NULL = 0x1e
+VALUE_TYPE_BOOLEAN = 0x1f
+VALUE_TYPE_AUTO = 0xff
+
 
 STRING_ID_ITEM_SIZE = 4
 TYPE_ID_ITEM_SIZE = 4
@@ -83,14 +103,49 @@ def get_parameter_register_count(parameters, is_static):
 
 class SectionManager(object):
   def __init__(self, manager):
-    self.section_map = {}
+    self.section_map = {
+      SECTION_STRING: StringSection(self),
+      SECTION_TYPE: TypeSection(self),
+      SECTION_PROTO: ProtoSection(self),
+      SECTION_ANNOTATION_SET: AnnotationSetSection(self),
+      SECTION_ANNOTATION: AnnotationSection(self),
+      SECTION_CLASS: ClassSection(self),
+      SECTION_ENCODED_ARRAY: EncodedArraySection(self),
+      SECTION_FIELD: FieldSection(self),
+      SECTION_METHOD: MethodSection(self),
+      SECTION_METHOD_HANDLE: MethodHandleSection(self),
+      SECTION_CALL_SITE: CallSiteSection(self),
+      SECTION_TYPE_LIST: TypeListSection(self)
+    }
     self.externel_manager = manager
   def get_section(self, key):
     return self.section_map[key]
 
+  def add_encoded_value(self, value):
+    if value.value_type == VALUE_TYPE_ARRAY:
+      for v in value.values:
+        self.add_encoded_value(v)
+    elif value.value_type == VALUE_TYPE_ANNOTATION:
+      self.get_section(SECTION_TYPE).add_item(value.value.type)
+      for elem in value.value.elements:
+        self.get_section(SECTION_STRING).add_item(elem[0])
+        self.add_encoded_value(elem[1].value)
+    elif value.value_type == VALUE_TYPE_STRING:
+      self.get_section(SECTION_STRING).add_item(value.value)
+    elif value.value_type == VALUE_TYPE_TYPE:
+      self.get_section(SECTION_TYPE).add_item(value.value)
+    elif value.value_type == VALUE_TYPE_ENUM or value.value_type == VALUE_TYPE_FIELD:
+      self.get_section(SECTION_FIELD).add_item(value.value)
+    elif value.value_type == VALUE_TYPE_METHOD:
+      self.get_section(SECTION_METHOD).add_item(value.value)
+    elif value.value_type == VALUE_TYPE_METHOD_HANDLE:
+      self.get_section(SECTION_METHOD_HANDLE).add_item(value.value)
+    elif value.value_type == VALUE_TYPE_METHOD_TYPE:
+      self.get_section(SECTION_PROTO).add_item(value.value.get_protos())
+
   def build_string_section(self, dex_pool):
     x = set()
-    section = StringSection(self)
+    section = self.get_section(SECTION_STRING)
     for clazz in dex_pool:
       p = clazz.get_related_strings()
       x.update(p)
@@ -100,10 +155,9 @@ class SectionManager(object):
     x.sort()
     for strings in x:
       section.add_item(strings)
-    self.section_map[SECTION_STRING] = section
 
   def build_type_section(self, dex_pool):
-    section = TypeSection(self)
+    section = self.get_section(SECTION_TYPE)
     type_list = set()
     for clazz in dex_pool:
       type_list.add(clazz.type)
@@ -119,11 +173,10 @@ class SectionManager(object):
     x.sort()
     for types in x:
       section.add_item(types)
-    self.section_map[SECTION_TYPE] = section
     print(section.type_map)
 
   def build_proto_section(self, dex_pool):
-    section = ProtoSection(self)
+    section = self.get_section(SECTION_PROTO)
     proto_list = set()
     for clazz in dex_pool:
       for method in clazz.methods:
@@ -133,10 +186,9 @@ class SectionManager(object):
     x = list(proto_list)
     for protos in x:
       section.add_item(protos)
-    self.section_map[SECTION_PROTO] = section
 
   def build_field_section(self, dex_pool):
-    section = FieldSection(self)
+    section = self.get_section(SECTION_FIELD)
     field_list = set()
     for clazz in dex_pool:
       for field in clazz.fields:
@@ -144,14 +196,19 @@ class SectionManager(object):
     for field_ in self.externel_manager.externel_field_list:
       field_list.add(field_)
     x = list(field_list)
+    initial_values = []
     for field in x:
       section.add_item(field)
-      if field.value:
-        self.get_section(SECTION_ENCODED_ARRAY).add_item(field.value)
-    self.section_map[SECTION_FIELD] = section
+      if field.is_static() and field.value:
+        initial_values.append(field.value)
+      if field.annotations:
+        self.get_section(SECTION_ANNOTATION_SET).add_item(field.annotations)
+
+    self.get_section(SECTION_ENCODED_ARRAY).add_item(initial_values)
+
   
   def build_method_section(self, dex_pool):
-    section = MethodSection(self)
+    section = self.get_section(SECTION_METHOD)
     method_list = set()
     for clazz in dex_pool:
       for method in clazz.methods:
@@ -161,7 +218,14 @@ class SectionManager(object):
     x = list(method_list)
     for method in x:
       section.add_item(method)
-    self.section_map[SECTION_METHOD] = section
+      self.build_code_item_section(method)
+      self.build_debug_info_item_section(method)
+      if method.annotations:
+        self.get_section(SECTION_ANNOTATION_SET).add_item(method.annotations)
+      for param in method.parameters:
+        if param.annotations:
+          self.get_section(SECTION_ANNOTATION_SET).add_item(param.annotations)
+
 
   def get_data_section_offset(self):
     ret = 0x70 # header_item_size
@@ -176,27 +240,26 @@ class SectionManager(object):
     return ret
   
   def build_class_def_section(self, dex_pool):
-    section = ClassSection(self)
+    section = self.get_section(SECTION_CLASS)
     clazz_list = set()
     for clazz in dex_pool:
       clazz_list.add(clazz)
     for clazz in clazz_list:
       section.add_item(clazz)
-    self.section_map[SECTION_CLASS] = section
-  
+      if clazz.annotations:
+        self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
+
   def build_call_site_id_section(self, dex_pool): # pass, for reflection
-    section = CallSiteSection(self)
-    self.section_map[SECTION_CALL_SITE] = section
+    pass
 
   def build_method_handle_section(self, dex_pool): # pass, for reflection
-    section = MethodHandleSection(self)
-    self.section_map[SECTION_METHOD_HANDLE] = section
+    pass
 
   def build_map_list_section(self, dex_pool):
     pass
 
   def build_type_list_section(self, dex_pool):
-    section = TypeListSection(self)
+    section = self.get_section(SECTION_TYPE_LIST)
     clazz_list = set()
     for clazz in dex_pool:
       section.add_item(clazz.interfaces)
@@ -204,34 +267,36 @@ class SectionManager(object):
         section.add_item(method.proto.parameters)
     for type_list_ in self.externel_manager.externel_type_list_list:
       section.add_item(type_list_)
-    self.section_map[SECTION_TYPE_LIST] = section
 
 
 
-  def build_annotation_section(self, dex_pool):
+  def build_code_item_section(self, method):
+    if method.get_editor() == 0: return
+
+    for code in method.get_editor():
+      if code.get_ref_type() == RefType.STRING:
+        self.get_section(SECTION_STRING).add_item(code.get_string())
+      elif code.get_ref_type() == RefType.TYPE:
+        self.get_section(SECTION_TYPE).add_item(code.get_type())
+      elif code.get_ref_type() == RefType.FIELD:
+        self.get_section(SECTION_FIELD).add_item(code.get_field())
+      elif code.get_ref_type() == RefType.METHOD:
+        self.get_section(SECTION_METHOD).add_item(code.get_method())
+      elif code.get_ref_type() == RefType.CALL_SITE:
+        self.get_section(SECTION_CALL_SITE).add_item(code.get_call_site())
+    tries = method.get_try_blocks()
+    for tryblock in tries:
+      for handler in tryblock.handlers:
+        self.get_section(SECTION_TYPE).add_item(handler.exception_type)
+    
+
+
+
+  def build_debug_info_item_section(self, method):
     pass
 
-  def build_annotation_set_section(self, dex_pool):
-    pass
-
-  def build_class_data_item_section(self, dex_pool):
-    pass
-
-  def build_code_item_section(self, dex_pool):
-    pass
-
-  def build_string_data_item_section(self, dex_pool):
-    pass
 
 
-  def build_debug_info_item_section(self, dex_pool):
-    pass
-
-
-
-  def build_encoded_array_item_section(self, dex_pool):
-    pass
-  
 
   def build_hiddenapi_class_data_item_section(self, dex_pool): # pass, for reflection
     pass
@@ -283,6 +348,7 @@ class DexWriter(object):
 
   def build_dex(self, dex_pool, stream):
     manager = self.manager
+    
     manager.build_string_section(dex_pool)
     manager.build_type_section(dex_pool)
     manager.build_proto_section(dex_pool)
@@ -295,11 +361,6 @@ class DexWriter(object):
     manager.build_type_list_section(dex_pool)
     manager.build_annotation_section(dex_pool)
     manager.build_annotation_set_section(dex_pool)
-    manager.build_class_data_item_section(dex_pool)
-    manager.build_code_item_section(dex_pool)
-    manager.build_string_data_item_section(dex_pool)
-    manager.build_debug_info_item_section(dex_pool)
-    manager.build_encoded_array_item_section(dex_pool)
     manager.build_hiddenapi_class_data_item_section(dex_pool)
     data_section_offset = manager.get_data_section_offset()
     buf = bytearray()
