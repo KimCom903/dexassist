@@ -418,7 +418,7 @@ class DexWriter(object):
     #header_writer.close()
     #index_writer.close()
     #offset_writer.close()
-    with open('test.dex', 'ab') as f:
+    with open('test.dex', 'wb') as f:
       f.write(buf)
 
     #self.update_signature(buf)
