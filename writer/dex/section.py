@@ -246,8 +246,10 @@ class EncodedArraySection(Section):
   def __init__(self, section_manager):
     self.encoded_array_map = OrderedDict()
     self.section_ = section_manager
+    self.index = 0
   def add_item(self, value):
     self.encoded_array_map[value] = value # set id
+    self.index += 1
     for value in value.value_list:
       self.section_.add_encoded_value(value)
 

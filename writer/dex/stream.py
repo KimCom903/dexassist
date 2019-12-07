@@ -13,6 +13,7 @@ ULONGLONG_FMT = '<Q'
 UBYTE_FMT = '<B'
 BYTE_FMT = '<b'
 
+MOD_ADLER = 1
 def calc_adler32(data, length):
   a = 1
   b = 0
@@ -79,46 +80,45 @@ class BaseWriteStream(object):
   
   def write_ubyte(self, value):
     self.write_byte_array( self.as_byte(UBYTE_FMT, value))
-    self.position += 1
+
   def write_short(self, value):
     self.write_byte_array( self.as_byte(SHORT_FMT, value))
-    self.position += 2
+
   def write_ushort(self, value):
     self.write_byte_array( self.as_byte(USHORT_FMT, value))
-    self.position += 2
+
   def write_int(self, value):
     self.write_byte_array( self.as_byte(INT_FMT, value))
-    self.position += 4
+
   def write_uint(self, value):
     self.write_byte_array( self.as_byte(UINT_FMT, value))
-    self.position += 4
+
   def write_ulong(self, value):
     self.write_byte_array( self.as_byte(ULONGLONG_FMT, value))
-    self.position += 8
+
   def write_long(self, value):
     self.write_byte_array( self.as_byte(LONGLONG_FMT, value))
-    self.position += 8
+
   def write_string(self, value):
     val = self.encode(value)
     self.write_byte_array(val)
-    self.position += len(val)
   def write_arrays(self, value):
     self.write_byte_array(value)
-    self.position += len(value)
 
   def write_uleb(self, value):
     if value < 0:
+      print('value is unsigned')
      # raise Exception("get unsigned int : " + str(value))
       return 0
-    ret = bytearray()
     size = 0
+    #print('start write uleb with value {}'.format(value))
     while (value & 0xffffffff) > 0x7f:
-      print(value)
+      print('write uleb : {}'.format(value))
       self.write_ubyte((value & 0x7f) | 0x80)
       size += 1
       value >>= 7
-    self.position += size
-
+    print('write uleb : {}'.format(value))
+    self.write_ubyte(value)
     return size
 
   def write_sleb(self, value):
@@ -134,13 +134,17 @@ class BaseWriteStream(object):
       remaining >>= 7
       size += 1
     self.write_byte_array(ret)
-    self.position += size
 
   def write_ulebp1(self, value):
-    self.position += self.write_uleb(value + 1)
+    self.write_uleb(value + 1)
 
   def write_byte_array(self, byte_arr):
-    self.buf += byte_arr
+    if len(self.buf) < self.position + len(byte_arr):
+      extend_bytes = bytearray(self.position + len(byte_arr) - len(self.buf))
+      self.buf += extend_bytes
+    self.buf[self.position : self.position + len(byte_arr)] = byte_arr
+
+    self.position += len(byte_arr)
 
   def set_output_index(self, index):
     self.index = index

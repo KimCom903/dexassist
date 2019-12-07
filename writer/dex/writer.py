@@ -415,10 +415,11 @@ class DexWriter(object):
     self.write_classes(index_writer, offset_writer)
     self.write_map_item(offset_writer)
     self.write_header(header_writer, data_section_offset, offset_writer.get_position())
-
-    header_writer.close()
-    index_writer.close()
-    offset_writer.close()
+    #header_writer.close()
+    #index_writer.close()
+    #offset_writer.close()
+    with open('test.dex', 'ab') as f:
+      f.write(buf)
 
     #self.update_signature(buf)
     #self.update_check_sum(buf)
@@ -431,6 +432,7 @@ class DexWriter(object):
     for item in self.get_section(SECTION_STRING).get_items():
       index_writer.write_int(offset_writer.get_position())
       string_val = item
+      print('write_string : {}'.format(len(string_val)))
       offset_writer.write_uleb(len(string_val))
       offset_writer.write_string(string_val)
       offset_writer.write_ubyte(0)
@@ -561,8 +563,8 @@ class DexWriter(object):
 
     if self.get_section(SECTION_STRING).size(): num_items += 1 # for data
 
-    num_items += len(filter(lambda x : x > 0, [self.get_section(x).size() for x in [SECTION_STRING, SECTION_TYPE, SECTION_PROTO, SECTION_FIELD, SECTION_METHOD, SECTION_CALL_SITE,
-    SECTION_METHOD_HANDLE, SECTION_TYPE_LIST, SECTION_ENCODED_ARRAY, SECTION_ANNOTATION, SECTION_CLASS]]))
+    num_items += len(list(filter(lambda x : x > 0, [self.get_section(x).size() for x in [SECTION_STRING, SECTION_TYPE, SECTION_PROTO, SECTION_FIELD, SECTION_METHOD, SECTION_CALL_SITE,
+    SECTION_METHOD_HANDLE, SECTION_TYPE_LIST, SECTION_ENCODED_ARRAY, SECTION_ANNOTATION, SECTION_CLASS]])))
 
     if self.get_section(SECTION_ANNOTATION_SET).size() > 0 or self.should_create_empty_annotation_set():
       num_items += 1
@@ -913,9 +915,10 @@ class DexWriter(object):
     val.encode(writer)
 
   def get_magic(self, api_level):
-    return 'DEX\n035' + '\x00'
+    dex_version = 0x35
+    return bytearray([0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, dex_version, 0x00])
   def write_header(self, writer, data_offset, file_size):
-    writer.write_ulong(self.get_magic("opcodes.api"))
+    writer.write_byte_array(self.get_magic("opcodes.api"))
     writer.write_int(0) # checksum
     writer.write_arrays(bytearray(20))
 
