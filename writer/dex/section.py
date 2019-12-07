@@ -240,7 +240,7 @@ class EncodedArraySection(Section):
 
   def get_items(self):
     return list(self.encoded_array_map.values())
-
+  
 class AnnotationSection(Section):
   def __init__(self, section_manager):
     self.annotation_map = OrderedDict()
@@ -251,10 +251,8 @@ class AnnotationSection(Section):
     self.get_section(SECTION_TYPE).add_item(dex_annotation.type)
     for elem in dex_annotation.elements:
       self.get_section(SECTION_STRING).add_item(elem[0])
-      self.add_encoded_value(elem[1])
+      self.add_encoded_value(elem[1].value)
     self.index += 1 
-  def get_items(self):
-    return list(self.annotation_map.keys())
 
 class AnnotationSetSection(Section):
   def __init__(self, section_manager):
@@ -266,4 +264,3 @@ class AnnotationSetSection(Section):
     self.index += 1
     for x in value:
       self.get_section(SECTION_ANNOTATION).add_item(x)
-

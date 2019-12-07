@@ -1,4 +1,23 @@
 NO_OFFSET = -1
+VALUE_TYPE_BYTE = 0x00
+VALUE_TYPE_SHORT = 0x02
+VALUE_TYPE_CHAR = 0x03
+VALUE_TYPE_INT = 0x04
+VALUE_TYPE_LONG = 0x06
+VALUE_TYPE_FLOAT = 0x10
+VALUE_TYPE_DOUBLE = 0x11
+VALUE_TYPE_METHOD_TYPE = 0x15
+VALUE_TYPE_METHOD_HANDLE = 0x16
+VALUE_TYPE_STRING = 0x17
+VALUE_TYPE_TYPE = 0x18
+VALUE_TYPE_FIELD = 0x19
+VALUE_TYPE_METHOD = 0x1a
+VALUE_TYPE_ENUM = 0x1b
+VALUE_TYPE_ARRAY = 0x1c
+VALUE_TYPE_ANNOTATION = 0x1d
+VALUE_TYPE_NULL = 0x1e
+VALUE_TYPE_BOOLEAN = 0x1f
+VALUE_TYPE_AUTO = 0xff
 
 class Dex(object):
   def __init__(self, manager):
@@ -99,7 +118,6 @@ class DexMethod(object):
     self.shorty = proto_shorty
     self.make_signature()
     self.param_annotations = []
-
     print('signature : {}'.format(self.signature))
     self.editor = editor
   def get_editor(self):
@@ -181,26 +199,6 @@ class DexAnnotation(object):
     
   def __str__(self):
     return '{}({})'.format(self.type_name, self.elements)
-
-VALUE_TYPE_BYTE = 0x00
-VALUE_TYPE_SHORT = 0x02
-VALUE_TYPE_CHAR = 0x03
-VALUE_TYPE_INT = 0x04
-VALUE_TYPE_LONG = 0x06
-VALUE_TYPE_FLOAT = 0x10
-VALUE_TYPE_DOUBLE = 0x11
-VALUE_TYPE_METHOD_TYPE = 0x15
-VALUE_TYPE_METHOD_HANDLE = 0x16
-VALUE_TYPE_STRING = 0x17
-VALUE_TYPE_TYPE = 0x18
-VALUE_TYPE_FIELD = 0x19
-VALUE_TYPE_METHOD = 0x1a
-VALUE_TYPE_ENUM = 0x1b
-VALUE_TYPE_ARRAY = 0x1c
-VALUE_TYPE_ANNOTATION = 0x1d
-VALUE_TYPE_NULL = 0x1e
-VALUE_TYPE_BOOLEAN = 0x1f
-VALUE_TYPE_AUTO = 0xff
 
 
 class DexArray(object):
