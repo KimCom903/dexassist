@@ -229,20 +229,18 @@ class MapSection(Section):
 class EncodedArraySection(Section):
   def __init__(self, section_manager):
     self.encoded_array_map = OrderedDict()
-    self.index = 0
     self.section_ = section_manager
   def add_item(self, value):
-    key = self.hash(value)
-    if key in self.encoded_array_map:
-      return
-    self.encoded_array_map[key] = self.index # set id
-    self.index += 1
-    for value in value:
+    self.encoded_array_map[value] = value # set id
+    for value in value.value_list:
       self.section_.add_encoded_value(value)
 
   def hash(self, item):
     return ''.join(str(x) for x in item)
 
+  def get_items(self):
+    return list(self.encoded_array_map.values())
+  
 class AnnotationSection(Section):
   def __init__(self, section_manager):
     self.annotation_map = OrderedDict()
@@ -251,7 +249,6 @@ class AnnotationSection(Section):
   def add_item(self, dex_annotation):
     self.annotation_map[dex_annotation] = self.index # set id
     self.get_section(SECTION_TYPE).add_item(dex_annotation.type)
-
     for elem in dex_annotation.elements:
       self.get_section(SECTION_STRING).add_item(elem[0])
       self.add_encoded_value(elem[1].value)

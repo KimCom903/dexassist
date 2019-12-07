@@ -109,6 +109,11 @@ class Instruction(object):
     return translate_opcode(self.get_op())
   def get_opcode_string(self):
     return self.op_as_string()
+  def get_ref_type(self):
+    pass
+  def get_item(self):
+    pass
+
 # N/A 	00x 	N/A
 class Instruction00x(Instruction):
   def as_byte_stream(self):
@@ -267,6 +272,9 @@ class Instruction20bc(Instruction):
   def __len__(self):
     return 4         
 
+  def get_ref_type(self):
+    pass
+
 # AA|op BBBB 	22x 	op vAA, vBBBB
 class Instruction22x(Instruction):
   def as_byte_stream(self):
@@ -336,6 +344,13 @@ class Instruction21c(Instruction22x):
     stream.write_ubyte(self.op)
     stream.write_ushort(manager.get_section(self.get_section_type(self.op)).get_item_index(self.BBBB))
     return len(self)
+
+  def get_ref_type(self):
+    return OPCODE_TABLE[self.op][2]
+ 
+  def get_item(self):
+    return self.BBBB
+    
   
 # AA|op CC|BB	23x	    op vAA, vBB, vCC
 class Instruction23x(Instruction):
@@ -422,6 +437,12 @@ class Instruction22c(Instruction22t):
     stream.write_ubyte(self.op)
     stream.write_ushort(manager.get_section(self.get_section_type(self.op)).get_item_index(self.CCCC))
     return len(self)
+
+  def get_ref_type(self):
+    return OPCODE_TABLE[self.op][2]
+ 
+  def get_item(self):
+    return self.CCCC    
 
 # B|A|op CCCC   22cs    op vA, vB, fieldoff@CCCC
 # not used instruction
@@ -533,6 +554,12 @@ class Instruction31c(Instruction31i):
     stream.write_ubyte(self.op)
     stream.write_uint(manager.get_section(self.get_section_type(self.op)).get_item_index(self.BBBBBBBB))
     return len(self)
+  
+  def get_ref_type(self):
+    return OPCODE_TABLE[self.op][2]
+ 
+  def get_item(self):
+    return self.BBBBBBBB
 
 # A|G|op BBBB F|E|D|C	35c	    [A=5] op {vC, vD, vE, vF, vG}, meth@BBBB
 #                               [A=5] op {vC, vD, vE, vF, vG}, call_site@BBBB
@@ -596,6 +623,12 @@ class Instruction35c(Instruction):
   def __len__(self):
     return 6
 
+  def get_ref_type(self):
+    return OPCODE_TABLE[self.op][2]
+ 
+  def get_item(self):
+    return self.BBBB    
+
 # A|G|op BBBB F|E|D|C      35ms	    [A=5] op {vC, vD, vE, vF, vG}, vtaboff@BBBB
 #                                   [A=4] op {vC, vD, vE, vF}, vtaboff@BBBB
 #                                   [A=3] op {vC, vD, vE}, vtaboff@BBBB
@@ -650,6 +683,12 @@ class Instruction3rc(Instruction):
     
   def __len__(self):
     return 6
+
+  def get_ref_type(self):
+    return OPCODE_TABLE[self.op][2]
+ 
+  def get_item(self):
+    return self.BBBB
 
 # AA|op BBBB CCCC	3rms    op {vCCCC .. vNNNN}, vtaboff@BBBB
 class Instruction3rms(Instruction3rc):
@@ -713,6 +752,9 @@ class Instruction45cc(Instruction):
     
   def __len__(self):
     return 8
+ 
+  def get_item(self):
+    return [self.BBBB, self,HHHH]
 
 # AA|op BBBB CCCC HHHH	4rcc	op> {vCCCC .. vNNNN}, meth@BBBB, proto@HHHH   
 class Instruction4rcc(Instruction):
@@ -747,6 +789,10 @@ class Instruction4rcc(Instruction):
     
   def __len__(self):
     return 8
+
+  def get_item(self):
+    return [self.BBBB, self,HHHH]
+
 
 # AA|op BBBBlo BBBB BBBB BBBBhi	51l	op vAA, #+BBBBBBBBBBBBBBBB
 class Instruction51l(Instruction):

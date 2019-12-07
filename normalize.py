@@ -1,4 +1,23 @@
 NO_OFFSET = -1
+VALUE_TYPE_BYTE = 0x00
+VALUE_TYPE_SHORT = 0x02
+VALUE_TYPE_CHAR = 0x03
+VALUE_TYPE_INT = 0x04
+VALUE_TYPE_LONG = 0x06
+VALUE_TYPE_FLOAT = 0x10
+VALUE_TYPE_DOUBLE = 0x11
+VALUE_TYPE_METHOD_TYPE = 0x15
+VALUE_TYPE_METHOD_HANDLE = 0x16
+VALUE_TYPE_STRING = 0x17
+VALUE_TYPE_TYPE = 0x18
+VALUE_TYPE_FIELD = 0x19
+VALUE_TYPE_METHOD = 0x1a
+VALUE_TYPE_ENUM = 0x1b
+VALUE_TYPE_ARRAY = 0x1c
+VALUE_TYPE_ANNOTATION = 0x1d
+VALUE_TYPE_NULL = 0x1e
+VALUE_TYPE_BOOLEAN = 0x1f
+VALUE_TYPE_AUTO = 0xff
 
 class Dex(object):
   def __init__(self, manager):
@@ -12,6 +31,7 @@ class DexClassItem(object):
   def __init__(self):
     self.annotations = []
     self.methods = []
+    self.values = None
     # direct_methods = any of static, private, or constructor
     # virtual_methods = none of static, private, or constructor
     self.fields = []
@@ -21,6 +41,8 @@ class DexClassItem(object):
     self.superclass = None
     self.source_file_name = None
     self.interfaces = []
+    self.static_initializers = None
+
   def set_name(self):
     return self.name
   def add_annotation(self, annotation):
@@ -95,10 +117,13 @@ class DexMethod(object):
     self.parameters = self.params
     self.shorty = proto_shorty
     self.make_signature()
+    self.param_annotations = []
     print('signature : {}'.format(self.signature))
     self.editor = editor
   def get_editor(self):
     return self.editor
+  def get_try_blocks(self):
+    return self.editor.tries
 
   def make_signature(self):
     self.signature = '{}({})'.format(self.return_type , ''.join(self.params))
@@ -175,31 +200,25 @@ class DexAnnotation(object):
   def __str__(self):
     return '{}({})'.format(self.type_name, self.elements)
 
-VALUE_TYPE_BYTE = 0x00
-VALUE_TYPE_SHORT = 0x02
-VALUE_TYPE_CHAR = 0x03
-VALUE_TYPE_INT = 0x04
-VALUE_TYPE_LONG = 0x06
-VALUE_TYPE_FLOAT = 0x10
-VALUE_TYPE_DOUBLE = 0x11
-VALUE_TYPE_METHOD_TYPE = 0x15
-VALUE_TYPE_METHOD_HANDLE = 0x16
-VALUE_TYPE_STRING = 0x17
-VALUE_TYPE_TYPE = 0x18
-VALUE_TYPE_FIELD = 0x19
-VALUE_TYPE_METHOD = 0x1a
-VALUE_TYPE_ENUM = 0x1b
-VALUE_TYPE_ARRAY = 0x1c
-VALUE_TYPE_ANNOTATION = 0x1d
-VALUE_TYPE_NULL = 0x1e
-VALUE_TYPE_BOOLEAN = 0x1f
-VALUE_TYPE_AUTO = 0xff
+
+class DexArray(object):
+  def __init__(self):
+    self.value_list = []
+    self.ofset = NO_OFFSET
+  def __hash__(self):
+    ret = ""
+    for s in self.value_list:
+      ret += str(s)   
+    return hash(ret)
+  def __eq__(self, othr):
+    if hash(self) == hash(othr):
+      return True
+    return False
 
 class DexValue(object):
   def __init__(self, value, value_type = VALUE_TYPE_AUTO):
     self.value = value
     self.value_type = value_type
-    self.encoded_array_offset = NO_OFFSET
   
   def encode(self, stream):
     encoded_type = self.get_type()
@@ -208,16 +227,26 @@ class DexValue(object):
     if encoded_type in [VALUE_TYPE_BYTE, VALUE_TYPE_ARRAY, VALUE_TYPE_ANNOTATION, VALUE_TYPE_NULL, VALUE_TYPE_BOOLEAN]:
       value_arg = 0
     stream.write_ubyte((((value_arg & 0xffffffff) << 5) | encoded_type))
-    stream.wrte_byte_array(encoded_value)
+    stream.write_byte_array(encoded_value)
+    stream.position += len(encoded_value)
+
+  def __str__(self):
+    return str(self.value) + str(self.value_type)
 
   def value_as_byte(self, type_value):
     if type_value == VALUE_TYPE_BYTE:
-      return write_1(self.value)
+      return self.write_1(self.value)
     if type_value in [VALUE_TYPE_SHORT, VALUE_TYPE_CHAR]:
-      return write_2(self.value)
+      return self.write_2(self.value)
+    if type_value in [VALUE_TYPE_INT, VALUE_TYPE_FLOAT]:
+      return self.write_4(self.value)
+    if type_value in [VALUE_TYPE_DOUBLE, VALUE_TYPE_LONG]:
+      return self.write_8(self.value)
+    
+    
     # need struct.pack()
     
-    return bytes()
+    return bytes([0x00])
 
   def write_1(self, value):
     return bytes([value & 0xff])
@@ -225,6 +254,8 @@ class DexValue(object):
     return bytes([value << 8 & 0xff, value & 0xff])
   def write_4(self, value):
     return bytes([value << 24 & 0xff, value << 16 & 0xff, value << 8 & 0xff, value & 0xff])
+  def write_8(self, value):
+    return bytes([value << 56 & 0xff, value << 48 & 0xff, value << 40 & 0xff, value << 32 & 0xff, value << 24 & 0xff, value << 16 & 0xff, value << 8 & 0xff, value & 0xff])
   def get_type(self):
     if self.value_type == VALUE_TYPE_AUTO:
       return self.get_inferenced_type()
