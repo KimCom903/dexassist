@@ -10,6 +10,7 @@ from writer.dex.util import InstructionUtil
 
 from writer.dex.stream import OutputStream
 from writer.dex.stream import TempOutputStream
+from writer.dex.stream import InstructionWriter
 
 NO_INDEX = -1
 NO_OFFSET = 0
@@ -116,6 +117,9 @@ def get_parameter_register_count(parameters, is_static):
   return reg_count
 
 class SectionManager(object):
+  @property
+  def method_section(self):
+    return self.get_section(SECTION_METHOD)
   def __init__(self, manager):
     self.section_map = {
       SECTION_STRING: StringSection(self),
@@ -137,7 +141,7 @@ class SectionManager(object):
 
   def add_encoded_value(self, value):
     if value.value_type == VALUE_TYPE_ARRAY:
-      for v in value.value.values:
+      for v in value.values:
         self.add_encoded_value(v)
     elif value.value_type == VALUE_TYPE_ANNOTATION:
       self.get_section(SECTION_TYPE).add_item(value.value.type)
@@ -407,7 +411,7 @@ class DexWriter(object):
     self.write_annotation_sets(offset_writer)
     self.write_annotation_set_refs(offset_writer, dex_pool)
     self.write_annotation_directories(offset_writer, dex_pool)
-    self.write_debug_and_code_items(offset_writer, TempOutputStream())
+    self.write_debug_and_code_items(offset_writer, TempOutputStream(bytearray()))
     self.write_classes(index_writer, offset_writer)
     self.write_map_item(offset_writer)
     self.write_header(header_writer, data_section_offset, offset_writer.get_position())
@@ -442,10 +446,10 @@ class DexWriter(object):
         pass
 
   def write_debug_and_code_items(self, offset_writer, deferred_stream):
-    ehbuf = TempOutputStream()
+    ehbuf = TempOutputStream(bytearray())
     self.debug_section_offset = offset_writer.get_position()
     # pass write debug section!
-    code_writer = TempOutputStream()
+    code_writer = TempOutputStream(bytearray())
     for clazz in self.get_section(SECTION_CLASS).get_items():
       direct_methods = clazz.get_direct_methods()
       virtual_methods = clazz.get_virtual_methods()
@@ -458,7 +462,7 @@ class DexWriter(object):
         #)
         debug_item_offset = 0
         code_item_offset = self.write_code_item(code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset)
-        if code_item_offset != 1:
+        if code_item_offset != NO_OFFSET:
           method.code_item_offset = code_item_offset
           #code_offsets.append(CodeItemOffset(method, code_item_offset))
     
@@ -467,16 +471,14 @@ class DexWriter(object):
     code_writer.write_to(offset_writer)
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
-    self.num_code_items += 1
+    self.num_code_item_items += 1
     code_writer.align()
     code_item_offset = code_writer.get_position()
     code_writer.write_ushort(get_method_register_count(method))
     is_static = method.is_static()
-    params = self.get_section(SECTION_TYPE_LIST).get_types(
-      self.get_section(SECTION_PROTO).get_parameters(method.proto)
-    )
+    print(method.proto)
     code_writer.write_ushort(
-      get_parameter_register_count(params, is_static)
+      get_parameter_register_count(method.proto.parameters, is_static)
     )
     if instructions is None:
       code_writer.write_ushort(0)
@@ -489,7 +491,7 @@ class DexWriter(object):
     code_unit_count = 0
     param_count = 0
     for ins in instructions:
-      code_unit_count += ins.get_code_units()
+      code_unit_count += len(ins) #.get_code_unit_count()
       if ins.ref_type == INSTRUCT_TYPE_METHOD:
         method_ref = ins.ref
         opcode = ins.get_op()
@@ -505,28 +507,21 @@ class DexWriter(object):
     code_writer.write_ushort(len(try_blocks))
     code_writer.write_int(debug_item_offset)
 
-    ins_writer = InstructionWriter.make_ins_writer(instructions, code_writer, self.get_section(SECTION_STRING),
-    self.get_section(SECTION_TYPE),
-    self.get_section(SECTION_FIELD),
-    self.get_section(SECTION_METHOD),
-    self.get_section(SECTION_PROTO),
-    self.get_section(SECTION_METHOD_HANDLE),
-    self.get_section(SECTION_CALL_SITE))
+    ins_writer = InstructionWriter(code_writer, self)
 
     code_writer.write_int(code_unit_count)
     code_offset = 0
 
     for ins in instructions:
       ins_writer.write(ins)
-      code_offset += ins.get_code_units()
-    
+      code_offset += len(ins)#.en(get_code_units()
     if len(try_blocks) > 0:
       code_writer.align()
       handler_map = dict()
     
-    for try_block in try_blocks:
-      handler_map[try_block.get_exception_handlers()] = 0
-    ehbuf.write_uleb(len(handler_map))
+      for try_block in try_blocks:
+        handler_map[try_block.get_exception_handlers()] = 0
+      ehbuf.write_uleb(len(handler_map))
 
     for try_block in try_blocks:
       code_writer.write_int(try_block.get_start_addr())
@@ -559,6 +554,7 @@ class DexWriter(object):
           ehbuf.write_uleb(code_addr)
     if ehbuf.get_position() > 0:
       eubuf.write_to(code_writer)
+    return code_item_offset
 
   def calc_map_list_item_count(self):
     num_items = 2 # header, map_list_item
@@ -576,7 +572,7 @@ class DexWriter(object):
       num_items += 1
     if self.num_debug_info_items > 0:
       num_items += 1
-    if self.num_code_items > 0:
+    if self.num_code_item_items > 0:
       num_items += 1
     if self.num_class_data_items > 0:
       num_items += 1
@@ -623,10 +619,11 @@ class DexWriter(object):
   def write_type_lists(self, writer):
     writer.align()
     self.type_list_section_offset = writer.position
+    type_list_section = self.get_section(SECTION_TYPE_LIST)
 
-    for item in self.get_section(SECTION_TYPE_LIST).get_items():
+    for item in type_list_section.get_items():
       writer.align()
-      item.offset = writer.position
+      type_list_section.set_offset_by_item(item, writer.position)
       types = item.get_types()
       for t in types:
         writer.write_ushort(self.get_section(SECTION_TYPE).get_item_index(t))
@@ -647,9 +644,9 @@ class DexWriter(object):
         )
       )
       writer.write_int(
-        self.get_section(SECTION_TYPE_LIST).get_item(
+        self.get_section(SECTION_TYPE_LIST).get_offset_by_item(
           item.parameters
-        ).offset
+        )
       )
 
 
@@ -696,7 +693,7 @@ class DexWriter(object):
 
     clazz.index = 0
 
-    index = self.write_class(index_writer, offset_writer, index, clazz.super)
+    index = self.write_class(index_writer, offset_writer, index, clazz.superclass)
     for x in clazz.interfaces:
       index = self.write_class(index_writer, offset_writer, index, x)
     clazz.index = index
@@ -707,8 +704,9 @@ class DexWriter(object):
     
     index_writer.write_int(type_section.get_item_index(clazz.type))
     index_writer.write_int(clazz.access_flags)
-    index_writer.write_int(type_section.get_item_index(clazz.super.type))
-    index_writer.write_int(type_list_section.get_item_index([i.type for i in clazz.interfaces]))
+    index_writer.write_int(type_section.get_item_index(clazz.superclass))
+    x = type_list_section.get_item_index(clazz.interfaces)
+    index_writer.write_int(type_list_section.get_item_index(clazz.interfaces))
     index_writer.write_int(clazz.annotation_directory_offset)
 
     static_fields = clazz.get_sorted_static_fields()
@@ -726,7 +724,7 @@ class DexWriter(object):
     if clazz.static_initializers is not None:
       offset = encoded_array_section.get_item(clazz.static_initializers).offset
     else:
-      offset = None
+      offset = NO_OFFSET
     index_writer.write_int(offset)
 
     if not clazz_has_data: return index
@@ -751,6 +749,7 @@ class DexWriter(object):
     
     for field in field_list:
       index = field_section.get_item_index(field)
+      print("index : {} prev_index : {}".format(index, prev_index))
       offset_writer.write_uleb(index - prev_index)
       offset_writer.write_uleb(field.access_flags)
       prev_index = index
@@ -760,6 +759,7 @@ class DexWriter(object):
     method_section = self.get_section(SECTION_METHOD)
     for method in method_list:
       index = method_section.get_item_index(method)
+      print("index : {} prev_index : {}".format(index, prev_index))
       offset_writer.write_uleb(index - prev_index)
       offset_writer.write_uleb(method.access_flags)
       offset_writer.write_uleb(method.code_item_offset)
@@ -807,10 +807,11 @@ class DexWriter(object):
     if self.should_create_empty_annotation_set(): writer.write_int(0)
 
     annotation_set_section = self.get_section(SECTION_ANNOTATION_SET)
-    for item in annotation_set_section.get_items():
-      annotations = item.annotations
+    for index in annotation_set_section.get_items():
+      
+      annotations = annotation_set_section.get_item_by_index(index)
       writer.align()
-      item.offset = writer.position
+      annotation_set_section.set_offset_by_index(index, writer.position)
       writer.write_int(len(annotations))
       for annotation in annotations:
         writer.write_int(annotation.offset)
@@ -824,10 +825,11 @@ class DexWriter(object):
 
     for clazz in dex_pool:
       for method in clazz.methods:
-        param_annotation = method.parameter_annotations
+        param_annotation = method.param_annotations
         if not param_annotation: continue
         prev = interned.get(param_annotation, -1)
         if prev != -1:
+          method.annotation_set_ref_list_offset = prev
           param_annotation.offset = prev
           continue
 
@@ -853,7 +855,7 @@ class DexWriter(object):
     writer.align()
     self.annotation_directory_section_offset = writer.position
     interned = {}
-    tmp_buffer = bytearray(65536) # little endian
+    tmp_buf = bytearray(65536) # little endian
     field_section = self.get_section(SECTION_FIELD)
     method_section = self.get_section(SECTION_METHOD)
     annotation_set_section = self.get_section(SECTION_ANNOTATION_SET)
@@ -871,13 +873,13 @@ class DexWriter(object):
         if field.annotations:
           field_annotations += 1
           tmp_buffer.write_int(field_section.get_item_index(field))
-          tmp_buffer.write_int(field.annotations.offset)
+          tmp_buffer.write_int(annotation_set_section.get_offset_by_item(field.annotations))
           
       for method in clazz.methods:
         if method.annotations:
           method_annotations += 1
           tmp_buffer.write_int(method_section.get_item_index(method))
-          tmp_buffer.write_int(method.annotations.offset)
+          tmp_buffer.write_int(annotation_set_section.get_offset_by_item(method.annotations))
       
       for method in clazz.methods:
         if method.annotation_set_ref_list_offset != NO_OFFSET:
@@ -898,7 +900,7 @@ class DexWriter(object):
       
       self.num_annotation_directory_items += 1
       clazz.annotation_dir_offset = writer.position
-      writer.write_int(clazz.annotations.offset)
+      writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
       writer.write_int(field_annotations)
       writer.write_int(method_annotations)
       writer.write_int(param_annotations)

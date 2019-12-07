@@ -164,18 +164,34 @@ class TypeListSection(Section):
     self.type_list_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.type_index_map = dict()
+    self.offset_map = dict()
   def add_item(self, types):
     types = TypeListItem(types)
-    self.type_list_map[types] = types # set id
+    self.type_list_map[self.index] = types # set id
+    
+    self.type_index_map[hash(types)] = self.index
     self.index += 1
+  def set_offset_by_item(self, item, offset):
+    self.offset_map[hash(item)] = offset
+  def get_offset_by_item(self, item):
+    print(TypeListItem(item))
+    key = TypeListItem(item)
+    return self.offset_map[hash(key)]
   def get_item(self, value):
     value = TypeListItem(value)
-    return self.type_list_map[value]
+    return self.type_list_map[hash(value)]
   def get_items(self):
-    return self.type_list_map.keys()
+    return self.type_list_map.values()
   def get_item_index(self, value):
-    value = "".join(value)
-    return self.type_list_map[value]   
+    if isinstance(value, list):
+      value = TypeListItem(value)
+    return self.type_index_map[hash(value)]   
+  def get_types(self, type_list):
+    print(type_list)
+    return type_list
+
+
 
 class TypeListItem(object):
   def __init__(self, value):
@@ -253,14 +269,31 @@ class AnnotationSection(Section):
       self.get_section(SECTION_STRING).add_item(elem[0])
       self.add_encoded_value(elem[1].value)
     self.index += 1 
+  def get_items(self):
+    ret = [x for x in self.annotation_map]
+
+    return ret
 
 class AnnotationSetSection(Section):
   def __init__(self, section_manager):
     self.annotation_set_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.annotation_offset_map = dict()
   def add_item(self, value):
-    self.annotation_set_map[''.join([str(x) for x in value])] = self.index # set id
+    self.annotation_set_map[self.index] = value # set id
     self.index += 1
     for x in value:
       self.get_section(SECTION_ANNOTATION).add_item(x)
+  def get_items(self):
+    return self.annotation_set_map
+    #return list(self.annotation_set_map.values())
+  def get_item_by_index(self, index):
+    return self.annotation_set_map[index]
+  def set_offset_by_index(self, index, offset):
+    self.annotation_offset_map[index] = offset
+  def get_index_by_item(self, item):
+    return 1
+  def get_offset_by_item(self, item):
+    index = self.get_index_by_item(item)
+    return self.annotation_offset_map[index]

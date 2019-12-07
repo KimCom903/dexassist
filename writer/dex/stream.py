@@ -104,16 +104,17 @@ class BaseWriteStream(object):
     self.position += len(val)
 
   def write_uleb(self, value):
+    if value < 0:
+      raise Exception("get unsigned int : " + str(value))
     ret = bytearray()
-    remaining = value >> 7
     size = 0
-    while remaining:
-      ret.append((value & 127) | 128)
-      value = remaining
-    ret.append(value & 127)
-    size += 1
-    self.write_byte_array(ret)
+    while (value & 0xffffffff) > 0x7f:
+      print(value)
+      self.write_ubyte((value & 0x7f) | 0x80)
+      size += 1
+      value >>= 7
     self.position += size
+
     return size
 
   def write_sleb(self, value):
@@ -161,8 +162,8 @@ class OutputStream(BaseWriteStream):
 
 
 class TempOutputStream(BaseWriteStream):
-  def __init__(self):
-    self.buf = bytearray()
+  def __init__(self, buf):
+    self.buf = buf
     self.position = 0
   
   def write_to(self, stream):
@@ -191,12 +192,11 @@ class BufferStream(BaseWriteStream):
 
 
 class InstructionWriter(BaseWriteStream):
-  @staticmethod
-  def __init__(code_writer, section_manager):
+  def __init__(self, code_writer, section_manager):
     self.stream = code_writer
     self.manager = section_manager
 
-  def write(ins):
+  def write(self, ins):
     ins.write_byte_stream(self.stream, self.manager)
 
 

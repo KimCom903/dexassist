@@ -1,4 +1,5 @@
 NO_OFFSET = -1
+NO_INDEX =  -1
 VALUE_TYPE_BYTE = 0x00
 VALUE_TYPE_SHORT = 0x02
 VALUE_TYPE_CHAR = 0x03
@@ -19,6 +20,30 @@ VALUE_TYPE_NULL = 0x1e
 VALUE_TYPE_BOOLEAN = 0x1f
 VALUE_TYPE_AUTO = 0xff
 
+
+ACC_PUBLIC = 0x1
+ACC_PRIVATE = 0x2
+ACC_PROTECTED = 0x4
+ACC_STATIC = 0x8
+ACC_FINAL = 0x10
+ACC_SYNCHRONIZED = 0x20
+ACC_SYNC = ACC_SYNCHRONIZED
+ACC_VOLATILE = 0x40
+ACC_BRIDGE = 0x40
+ACC_TRANSIENT = 0x80
+ACC_VARARGS = 0x80
+ACC_NATIVE = 0x100
+ACC_INTERFACE = 0x200
+ACC_ABSTRACT = 0x400
+ACC_STRICT = 0x800
+ACC_SYNTHETIC = 0x1000
+ACC_ANNOTATION = 0x2000
+ACC_ENUM = 0x4000
+ACC_CONSTRUCTOR = 0x10000
+ACC_DECLARED_SYNCHRONIZED = 0x2000
+
+
+
 class Dex(object):
   def __init__(self, manager):
     self.classes = []
@@ -29,6 +54,7 @@ class Dex(object):
 
 class DexClassItem(object):
   def __init__(self):
+    self.index = NO_INDEX
     self.annotations = []
     self.methods = []
     self.values = None
@@ -42,6 +68,24 @@ class DexClassItem(object):
     self.source_file_name = None
     self.interfaces = []
     self.static_initializers = None
+    self.annotation_directory_offset = NO_OFFSET
+  
+  def get_sorted_static_fields(self):
+    return list(filter(lambda x : x.is_static(), self.fields))
+  def get_sorted_instance_fields(self):
+    return list(filter(lambda x : not x.is_static(), self.fields))
+
+  def get_sorted_direct_methods(self):
+    return self.get_direct_methods()
+  
+  def get_sorted_virtual_methods(self):
+    return self.get_virtual_methods()
+  def get_direct_methods(self):
+    return list(filter(lambda x : x.is_direct_method(), self.methods))
+  
+  def get_virtual_methods(self):
+    return list(filter(lambda x : not x.is_direct_method(), self.methods))
+
 
   def set_name(self):
     return self.name
@@ -117,9 +161,17 @@ class DexMethod(object):
     self.parameters = self.params
     self.shorty = proto_shorty
     self.make_signature()
+    self.access_flags = access_flags
     self.param_annotations = []
+    self.annotation_set_ref_list_offset = NO_OFFSET
     print('signature : {}'.format(self.signature))
     self.editor = editor
+    self.code_item_offset = NO_OFFSET
+  
+  def get_instructions(self):
+    if self.editor:
+      return self.editor.opcodes
+    return []
   def get_editor(self):
     return self.editor
   def get_try_blocks(self):
@@ -134,6 +186,16 @@ class DexMethod(object):
 
   def create_shorty_descriptor(self):
     return self.signature
+  def is_direct_method(self):
+    if self.is_static(): return True
+    if self.is_private(): return True
+    if self.is_constructor(): return True
+  def is_private(self):
+    return self.access_flags & ACC_PRIVATE
+  def is_static(self):
+    return self.access_flags & ACC_STATIC
+  def is_constructor(self):
+    return self.access_flags & ACC_CONSTRUCTOR
 
   def parse_type(self, value):
     pass
