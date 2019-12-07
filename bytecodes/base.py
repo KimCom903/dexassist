@@ -37,6 +37,12 @@ def translate_opcode(opcode):
 def translate_operand_type(opcode):
   return OPCODE_TABLE[opcode][2]
 class Instruction(object):
+
+  @property
+  def ref_type(self):
+    if len(OPCODE_TABLE[self.get_op()]) == 2: return -1
+    return OPCODE_TABLE[self.get_op()][2]
+
   def __init__(self, manager):
     self.manager = manager
   def initialize(self):
@@ -573,10 +579,13 @@ class Instruction35c(Instruction):
   def as_byte_stream(self):
     pass
   
+  @property
+  def ref(self):
+    return self.BBBB
   def write_byte_stream(self, stream, manager):
     stream.write_ubyte((self.A << 4) + self.G)
     stream.write_ubyte(self.op)
-    stream.write_ushort(self.BBBB)
+    stream.write_ushort(manager.manager.method_section.get_item_index(self.BBBB))
     stream.write_ubyte((self.F << 4) + self.E)
     stream.write_ubyte((self.D << 4) + self.C)
     return len(self)
@@ -653,7 +662,9 @@ class Instruction35mi(Instruction35c):
 class Instruction3rc(Instruction):
   def as_byte_stream(self):
     pass
-  
+  @property
+  def ref(self):
+    return self.BBBB
   def write_byte_stream(self, stream, manager):
     stream.write_ubyte(self.AA)
     stream.write_ubyte(self.op)
