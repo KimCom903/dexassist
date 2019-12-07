@@ -102,10 +102,14 @@ class BaseWriteStream(object):
     val = self.encode(value)
     self.write_byte_array(val)
     self.position += len(val)
+  def write_arrays(self, value):
+    self.write_byte_array(value)
+    self.position += len(value)
 
   def write_uleb(self, value):
     if value < 0:
-      raise Exception("get unsigned int : " + str(value))
+     # raise Exception("get unsigned int : " + str(value))
+      return 0
     ret = bytearray()
     size = 0
     while (value & 0xffffffff) > 0x7f:

@@ -889,12 +889,15 @@ class DexWriter(object):
       
       if field_annotations == 0 and method_annotations == 0 and param_annotations == 0:
         if clazz.annotations:
-          dir_offset = interned.get(clazz.annotations, None)
+          key = ""
+          for ann in clazz.annotations:
+            key += str(ann)
+          dir_offset = interned.get(key, None)
           if dir_offset:
             clazz.annotation_dir_offset = dir_offset
             continue
           else:
-            interned[clazz.annotations] = writer.position
+            interned[key] = writer.position
         else:
           continue
       
@@ -912,7 +915,7 @@ class DexWriter(object):
   def get_magic(self, api_level):
     return 'DEX\n035' + '\x00'
   def write_header(self, writer, data_offset, file_size):
-    writer.write(self.get_magic("opcodes.api"))
+    writer.write_ulong(self.get_magic("opcodes.api"))
     writer.write_int(0) # checksum
     writer.write_arrays(bytearray(20))
 
