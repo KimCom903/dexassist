@@ -855,7 +855,7 @@ class DexWriter(object):
     writer.align()
     self.annotation_directory_section_offset = writer.position
     interned = {}
-    tmp_buf = bytearray(65536) # little endian
+    tmp_buf = bytearray() # little endian
     field_section = self.get_section(SECTION_FIELD)
     method_section = self.get_section(SECTION_METHOD)
     annotation_set_section = self.get_section(SECTION_ANNOTATION_SET)
