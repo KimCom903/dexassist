@@ -11,7 +11,7 @@ from writer.dex.util import InstructionUtil
 from writer.dex.stream import OutputStream
 from writer.dex.stream import TempOutputStream
 from writer.dex.stream import InstructionWriter
-
+from normalize import DexValue
 NO_INDEX = -1
 NO_OFFSET = 0
 
@@ -141,8 +141,9 @@ class SectionManager(object):
 
   def add_encoded_value(self, value):
     if value.value_type == VALUE_TYPE_ARRAY:
-      for v in value.values:
-        self.add_encoded_value(v)
+      for v in value.value.values:
+        
+        self.add_encoded_value(DexValue(v.value, v.type))
     elif value.value_type == VALUE_TYPE_ANNOTATION:
       self.get_section(SECTION_TYPE).add_item(value.value.type)
       for elem in value.value.elements:
@@ -155,6 +156,8 @@ class SectionManager(object):
     elif value.value_type == VALUE_TYPE_ENUM or value.value_type == VALUE_TYPE_FIELD:
       self.get_section(SECTION_FIELD).add_item(value.value)
     elif value.value_type == VALUE_TYPE_METHOD:
+      print('add method : ')
+      print(value.value)
       self.get_section(SECTION_METHOD).add_item(value.value)
     elif value.value_type == VALUE_TYPE_METHOD_HANDLE:
       self.get_section(SECTION_METHOD_HANDLE).add_item(value.value)
@@ -264,6 +267,9 @@ class SectionManager(object):
       #if clazz.annotations:
         #self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
       self.get_section(SECTION_ENCODED_ARRAY).add_item(clazz.values)
+      if clazz.annotations:
+        print(clazz.annotations)
+        self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
 
   def build_call_site_id_section(self, dex_pool): # pass, for reflection
     pass
@@ -728,6 +734,7 @@ class DexWriter(object):
     index_writer.write_uint(clazz.access_flags)
     index_writer.write_uint(type_section.get_item_index(clazz.superclass))
     index_writer.write_uint(type_list_section.get_offset_by_item(clazz.interfaces))
+    index_writer.write_uint(0) # source_file_idx
     index_writer.write_uint(clazz.annotation_dir_offset)
    
 

@@ -284,6 +284,9 @@ class ClassDataSection(Section):
     self.index = 0
     self.section_ = section_manager
     self.frozen = False
+  def freeze(self):
+    self.frozen = True
+
   def add_item(self, value):
     if self.frozen:
       raise Exception('section is frozen')
@@ -292,7 +295,9 @@ class ClassDataSection(Section):
   def get_item(self, value):
     return list(self.class_data_map.keys())[value]
   def get_items(self):
-    return list(self.class_data_map.keys())
+    x = list(self.class_data_map.keys())
+    x.sort()
+    return x
   def get_item_index(self, value):
     return self.class_data_map[value]    
 
@@ -328,11 +333,15 @@ class AnnotationSection(Section):
   def add_item(self, dex_annotation):
     if self.frozen:
       raise Exception('section is frozen')
+    print(dex_annotation)
+    if dex_annotation in self.annotation_map: return
     self.annotation_map[dex_annotation] = self.index # set id
     self.get_section(SECTION_TYPE).add_item(dex_annotation.type)
     for elem in dex_annotation.elements:
       self.get_section(SECTION_STRING).add_item(elem[0])
-      self.add_encoded_value(elem[1].value)
+      print('add elem')
+      print(elem[1])
+      self.add_encoded_value(elem[1])
     self.index += 1 
   def get_items(self):
     ret = [x for x in self.annotation_map]

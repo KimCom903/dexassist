@@ -26,7 +26,7 @@ class DexConverter(object):
     if encoded_value.type == dex.ENCODED_VALUE_METHOD:
       pass
 
-    return translate_encoded_value(encoded_value)
+    return translate_encoded_value(manager, encoded_value)
 
   def extract_from_annotation_set_item(self, parent, manager, annotation_set_item):
     ret = []
@@ -192,10 +192,27 @@ class DexConverter(object):
 
 
 
-def translate_encoded_value(encoded_value):
+def translate_encoded_value(manager, encoded_value):
   #print('translate value(type : {}) : {} -> {}'.format(encoded_value.type, encoded_value, encoded_value.value))
-  
-  return normalize.DexValue(encoded_value.value, encoded_value.type)
+  value = encoded_value.value
+  if encoded_value.type == normalize.VALUE_TYPE_METHOD:
+    #create_method(self, class_name, method_name, proto_shorty, parameter, return_type):
+    proto = manager.proto_list[value.proto_idx]
+    shorty = manager.string_list[proto.shorty_idx]
+    return_type = manager.type_list[proto.return_type_idx]
+    method_name = manager.string_list[value.name_idx]
+    parameters = []
+    class_type = manager.type_list[value.class_idx]
+    if proto.type_list:
+      for type_item in proto.type_list.list:
+        pt_idx = type_item.type_idx
+        type_info = manager.type_list[pt_idx]
+        parameters.append(type_info)
+    
+    value = manager.create_method(class_type, method_name, shorty, parameters, return_type)
+    
+
+  return normalize.DexValue(value, encoded_value.type)
 
 def translate_encoded_array(encoded_array):
   #print(encoded_array)

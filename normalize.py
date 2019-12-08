@@ -190,6 +190,7 @@ class DexMethod(object):
     self.annotation_set_ref_list_offset = NO_OFFSET
     self.editor = editor
     self.code_item_offset = NO_OFFSET
+    self.proto = DexProto(self.shorty, self.return_type, self.params)
   
   def get_instructions(self):
     if self.editor:
@@ -204,7 +205,7 @@ class DexMethod(object):
     self.signature = '{}({})'.format(self.return_type , ''.join(self.params))
     
   def create_proto(self):
-    self.proto = DexProto(self.shorty, self.return_type, self.params)
+    
     return self.proto
 
   def create_shorty_descriptor(self):
