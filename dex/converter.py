@@ -208,6 +208,13 @@ def translate_encoded_value(manager, encoded_value):
         pt_idx = type_item.type_idx
         type_info = manager.type_list[pt_idx]
         parameters.append(type_info)
+        
+  elif encoded_value.type == normalize.VALUE_TYPE_FIELD:
+    class_type = manager.type_list[value.class_idx]
+    type_name = manager.type_list[value.type_idx]
+    name = manager.string_list[value.name_idx]
+    value = manager.create_field(class_type, name, type_name)
+  
     
     value = manager.create_method(class_type, method_name, shorty, parameters, return_type)
     
