@@ -68,7 +68,7 @@ class DexClassItem(object):
     self.source_file_name = None
     self.interfaces = []
     self.static_initializers = None
-    self.annotation_directory_offset = NO_OFFSET
+    self.annotation_dir_offset = NO_OFFSET
   
   def get_sorted_static_fields(self, section):
     l =  list(filter(lambda x : x.is_static(), self.fields))
@@ -119,16 +119,31 @@ class DexClassItem(object):
     OP_CONST_STRING = 0x1a
     ret.add(self.name)
     ret.add(self.type)
+    ret.add(self.superclass)
+    ret.add(self.source_file_name)
+    ret.update(self.interfaces)
+    for ann in self.annotations:
+      ret.add(ann.type)
+      for ele in ann.elements:
+        ret.add(ele[0])
     for x in self.methods:
       editor = x.get_editor()
       for opcode in editor.opcodes:
         if opcode.op == OP_CONST_STRING:
           ret.add(opcode.BBBB)
+      for ann in x.annotations:
+        ret.add(ann.type)
+        for ele in ann.elements:
+          ret.add(ele[0])
       ret.add(x.shorty)
       ret.add(x.name)
       ret.add(x.return_type)
       ret.update(x.params)
     for x in self.fields:
+      for ann in x.annotations:
+        ret.add(ann.type)
+        for ele in ann.elements:
+          ret.add(ele[0])
       ret.add(x.type)
       ret.add(x.name)
     return ret
@@ -173,7 +188,6 @@ class DexMethod(object):
     self.access_flags = access_flags
     self.param_annotations = []
     self.annotation_set_ref_list_offset = NO_OFFSET
-    print('signature : {}'.format(self.signature))
     self.editor = editor
     self.code_item_offset = NO_OFFSET
   
@@ -238,7 +252,7 @@ class DexProto(object):
     self.return_type = return_type
     self.parameters = params
   def __hash__(self):
-    return hash(self.shorty)
+    return hash(self.return_type + "".join(self.parameters))
   def __eq__(self,othr):
     if self.shorty == othr.shorty:
       return True

@@ -68,7 +68,7 @@ class DexConverter(object):
         print("source file idx {} is not in string_list".format(cdi.source_file_idx))
 
     if cdi.static_values:
-      item.static_values = [x.value for x in cdi.static_values.value.values]
+      item.static_initializer = [x.value for x in cdi.static_values.value.values]
     field_annotation_table = {}
     method_annotation_table = {}
     param_annotation_table = {}
@@ -100,7 +100,6 @@ class DexConverter(object):
       field = manager.field_list[field_idx]
       field_name = manager.string_list[field.name_idx]
       type_name = manager.type_list[field.type_idx]
-
       f = self.create_dex_field(item, field_name, type_name, access_flags)
       f.annotations = field_annotation_table.get(field_idx, [])
       item.fields.append(f)
@@ -144,7 +143,7 @@ class DexConverter(object):
       x.param_annotations = param_annotation_table.get(method_idx, [])
       item.methods.append(x)
       manager.method_item_list[item.type + method_name + proto_shorty] = x
-      manager.proto_item_list[proto_shorty] = x.create_proto()
+      manager.proto_item_list[return_type + "".join(parameter)] = x.create_proto()
     
     method_idx = 0
     for m in cdi.data.virtual_methods:
@@ -174,7 +173,7 @@ class DexConverter(object):
       x.param_annotations = param_annotation_table.get(method_idx, [])
       item.methods.append(x)
       manager.method_item_list[item.type + method_name + proto_shorty] = x
-      manager.proto_item_list[proto_shorty] = x.create_proto()
+      manager.proto_item_list[return_type + "".join(parameter)] = x.create_proto()
     return item
 
 
