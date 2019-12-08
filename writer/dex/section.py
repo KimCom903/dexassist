@@ -135,6 +135,8 @@ class FieldSection(Section):
     if self.frozen:
       raise Exception('section is frozen')
 
+    if dex_field in self.field_map: 
+      return
     self.field_map[dex_field] = self.index # set id
     self.index += 1
   def get_item(self, value):
@@ -143,7 +145,7 @@ class FieldSection(Section):
     return list(self.field_map.keys())
   def get_item_index(self, value):
     return self.field_map[value]
-    
+
 class MethodSection(Section):
   def __init__(self, section_manager):
     self.method_map = OrderedDict()
@@ -153,7 +155,8 @@ class MethodSection(Section):
   def add_item(self, dex_method):
     if self.frozen:
       raise Exception('section is frozen')
-
+    if dex_method in self.method_map:
+      return
     self.method_map[dex_method] = self.index # set id
     self.index += 1
   def get_item(self, value):

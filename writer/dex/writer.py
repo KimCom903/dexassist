@@ -263,6 +263,7 @@ class SectionManager(object):
       #if clazz.annotations:
         #self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
       self.get_section(SECTION_ENCODED_ARRAY).add_item(clazz.values)
+      self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
 
   def build_call_site_id_section(self, dex_pool): # pass, for reflection
     pass
