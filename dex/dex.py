@@ -910,17 +910,18 @@ class DexManager(object):
           type_info = self.type_list[parameter_type_idx]
           parameter.append(type_info)
       m = self.create_method(self.type_list[self.method_list[index].class_idx], method_name, proto_shorty, parameter, return_type)
+      self.externel_type_list.update(parameter)
       self.externel_proto_list.add(m.create_proto())
       self.externel_type_list_list.append(m.params)
-      self.externel_string_list.add(m.proto.shorty)
-      self.externel_method_list.append(m)
+      self.externel_type_list.update(parameter)
       self.externel_type_list.add(self.type_list[self.method_list[index].class_idx])
       self.externel_type_list.add(return_type)
+      self.externel_string_list.add(m.proto.shorty)
       self.externel_string_list.add(method_name)
       self.externel_string_list.add(self.type_list[self.method_list[index].class_idx])
       self.externel_string_list.add(return_type)
       self.externel_string_list.update(parameter)
-      self.externel_type_list.update(parameter)
+
       return m
 
   def get_field_dex_item_by_index(self, index):
