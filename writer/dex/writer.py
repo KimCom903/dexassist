@@ -602,7 +602,7 @@ class DexWriter(object):
       num_items += 1
     if self.num_class_data_items > 0:
       num_items += 1
-    return num_items
+    return num_items - 1
 
 
   def write_map_item(self, offset_writer):
