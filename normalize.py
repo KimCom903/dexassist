@@ -131,9 +131,10 @@ class DexClassItem(object):
         ret.add(ele[0])
     for x in self.methods:
       editor = x.get_editor()
-      for opcode in editor.opcodes:
-        if opcode.op == OP_CONST_STRING:
-          ret.add(opcode.BBBB)
+      if editor:
+        for opcode in editor.opcodes:
+          if opcode.op == OP_CONST_STRING:
+            ret.add(opcode.BBBB)
       for ann in x.annotations:
         ret.add(ann.type)
         for ele in ann.elements:
