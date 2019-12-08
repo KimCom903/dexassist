@@ -182,7 +182,9 @@ class ClassSection(Section):
   def get_item(self, value):
     return list(self.class_map.keys())[value]
   def get_items(self):
-    return list(self.class_map.keys())
+    x = list(self.class_map.keys())
+    x.sort()
+    return x
   def get_item_index(self, value):
     return self.class_map[value]    
 
