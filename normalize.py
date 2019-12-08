@@ -68,7 +68,7 @@ class DexClassItem(object):
     self.source_file_name = None
     self.interfaces = []
     self.static_initializers = None
-    self.annotation_directory_offset = NO_OFFSET
+    self.annotation_dir_offset = NO_OFFSET
   
   def get_sorted_static_fields(self, section):
     l =  list(filter(lambda x : x.is_static(), self.fields))
@@ -120,6 +120,8 @@ class DexClassItem(object):
     ret.add(self.name)
     ret.add(self.type)
     ret.add(self.superclass)
+    ret.add(self.source_file_name)
+    ret.update(self.interfaces)
     for ann in self.annotations:
       ret.add(ann.type)
       for ele in ann.elements:
