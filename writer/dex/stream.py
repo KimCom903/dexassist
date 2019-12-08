@@ -1,7 +1,7 @@
 from zlib import adler32
 import struct
 import inspect
-
+def rshift(val, n): return (val % 0x100000000) >> n
 UINT_FMT = '<I'
 USHORT_FMT = '<H'
 INT_FMT = '<i'
@@ -107,17 +107,14 @@ class BaseWriteStream(object):
 
   def write_uleb(self, value):
     if value < 0:
-      print('value is unsigned')
-     # raise Exception("get unsigned int : " + str(value))
-      return 0
-    size = 0
+      #print('value is unsigned')
+      raise Exception("get unsigned int : " + str(value))
+    size = 1
     #print('start write uleb with value {}'.format(value))
     while (value & 0xffffffff) > 0x7f:
-      print('write uleb : {}'.format(value))
       self.write_ubyte((value & 0x7f) | 0x80)
       size += 1
-      value >>= 7
-    print('write uleb : {}'.format(value))
+      value = rshift(value, 7)
     self.write_ubyte(value)
     return size
 

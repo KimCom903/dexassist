@@ -186,7 +186,7 @@ class DexConverter(object):
   def create_dex_method(self, manager, parent, method_name, access_flags, proto_shorty, parameter, return_type, code):
     x = None
     if code:
-      print('method : {}{}'.format(parent, method_name))
+      #print('method : {}{}'.format(parent, method_name))
       x = code_to_editor(manager, code)
     m = normalize.DexMethod(parent, method_name, access_flags, proto_shorty, parameter, return_type, x)
     return m
@@ -248,11 +248,11 @@ class CodeItemReader(object):
     self.manager = manager
     payload_size = 0
     stream = CodeStream(code_item.insns)
-    print('insns_size : {}'.format(code_item.insns_size))
+    #print('insns_size : {}'.format(code_item.insns_size))
     insns_size = code_item.insns_size
 
     while stream.index + payload_size < insns_size:
-      print('stream.index : {}'.format(stream.index))
+      #print('stream.index : {}'.format(stream.index))
       opcode = stream.peek() & 0xff
 
       instruction = base.OpcodeFactory.from_stream(opcode, self.editor.manager, stream)

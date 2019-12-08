@@ -1,5 +1,5 @@
 from collections import OrderedDict
-
+from normalize import DexProto
 SECTION_STRING = 1
 SECTION_TYPE = 2
 SECTION_PROTO = 3
@@ -28,6 +28,7 @@ class Section(object):
     self.type_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.frozen = False
 
   def get_section(self, key):
     return self.section_.get_section(key)
@@ -52,14 +53,21 @@ class Section(object):
     return self.section_.add_encoded_value(value)
   def size(self):
     return self.get_item_count()
+  def freeze(self):
+    self.frozen = True
 
 class StringSection(Section):
   def __init__(self, section_):
     self.string_map = OrderedDict()
     self.index = 0
     self.section_ = section_
+    self.frozen = False
   def add_item(self, value):
     # decode mutf8
+    if self.frozen:
+      raise Exception('section is frozen')
+    if value in self.string_map: return self.string_map[value]
+
     self.string_map[value] = self.index # set id
     self.index += 1
   def get_item(self, value):
@@ -75,7 +83,13 @@ class TypeSection(Section):
     self.index = 0
     self.section_ = section_manager
     self.offset = 0
+    self.frozen = False
   def add_item(self, dex_type):
+    if self.frozen:
+      raise Exception('section is frozen')
+
+    if dex_type in self.type_map: return self.type_map[dex_type]
+
     self.type_map[dex_type] = self.index # set id
     self.index += 1
   def get_item(self, value):
@@ -90,22 +104,37 @@ class ProtoSection(Section):
     self.proto_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.frozen = False
+  def add_interfaces(self, interfaces):
+    self.add_item(DexProto(''.join(interfaces), None, None))
   def add_item(self, dex_proto):
+    if self.frozen:
+      raise Exception('section is frozen')
+    print('proto : {}'.format(dex_proto))
+  
+    if dex_proto in self.proto_map: return
+
     self.proto_map[dex_proto] = self.index # set id
     self.index += 1
   def get_item(self, value):
     return list(self.proto_map.keys())[value]
   def get_items(self):
-    return list(self.proto_map.keys())
+    x = list(self.proto_map.keys())
+    x.sort()
+    return x
   def get_item_index(self, value):
     return self.proto_map[value]
-
+    
 class FieldSection(Section):
   def __init__(self, section_manager):
     self.field_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.frozen = False
   def add_item(self, dex_field):
+    if self.frozen:
+      raise Exception('section is frozen')
+
     self.field_map[dex_field] = self.index # set id
     self.index += 1
   def get_item(self, value):
@@ -120,7 +149,11 @@ class MethodSection(Section):
     self.method_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.frozen = False
   def add_item(self, dex_method):
+    if self.frozen:
+      raise Exception('section is frozen')
+
     self.method_map[dex_method] = self.index # set id
     self.index += 1
   def get_item(self, value):
@@ -137,7 +170,10 @@ class ClassSection(Section):
     self.class_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.frozen = False
   def add_item(self, dex_class):
+    if self.frozen:
+      raise Exception('section is frozen')
     self.class_map[dex_class] = self.index # set id
     self.index += 1
   def get_item(self, value):
@@ -152,12 +188,14 @@ class CallSiteSection(Section):
     self.call_site_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.frozen = False
 
 class MethodHandleSection(Section):
   def __init__(self, section_manager):
     self.method_handle_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.frozen = False
 
 class TypeListSection(Section):
   def __init__(self, section_manager):
@@ -166,29 +204,38 @@ class TypeListSection(Section):
     self.section_ = section_manager
     self.type_index_map = dict()
     self.offset_map = dict()
+    self.frozen = False
   def add_item(self, types):
+    if self.frozen:
+      raise Exception('section is frozen')
+    if len(types) == 0: return
+
     types = TypeListItem(types)
+    if types in self.type_index_map: return
     self.type_list_map[self.index] = types # set id
     
-    self.type_index_map[hash(types)] = self.index
+    self.type_index_map[types] = self.index
     self.index += 1
   def set_offset_by_item(self, item, offset):
-    self.offset_map[hash(item)] = offset
+    self.offset_map[item] = offset
   def get_offset_by_item(self, item):
-    print(TypeListItem(item))
+    if len(item) == 0: return 0
     key = TypeListItem(item)
-    return self.offset_map[hash(key)]
+
+    print('get offset : {}, return {}'.format(item, self.offset_map[key]))
+    return self.offset_map[key]
   def get_item(self, value):
     value = TypeListItem(value)
-    return self.type_list_map[hash(value)]
+    return self.type_list_map[value]
   def get_items(self):
     return self.type_list_map.values()
   def get_item_index(self, value):
+
     if isinstance(value, list):
       value = TypeListItem(value)
-    return self.type_index_map[hash(value)]   
+    return self.type_index_map[value]   
   def get_types(self, type_list):
-    print(type_list)
+    #print(type_list)
     return type_list
 
 
@@ -197,6 +244,7 @@ class TypeListItem(object):
   def __init__(self, value):
     self.list = value
     self.offset = 0
+    self.frozen = False
   def __hash__(self):
     return hash("".join(self.list))
   def __eq__(self,othr):
@@ -214,7 +262,10 @@ class CodeSection(Section):
     self.code_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.frozen = False
   def add_item(self, value):
+    if self.frozen:
+      raise Exception('section is frozen')
     self.code_map[value] = self.index # set id
     self.index += 1
   def get_item(self, value):
@@ -229,7 +280,10 @@ class ClassDataSection(Section):
     self.class_data_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.frozen = False
   def add_item(self, value):
+    if self.frozen:
+      raise Exception('section is frozen')
     self.class_data_map[value] = self.index # set id
     self.index += 1
   def get_item(self, value):
@@ -247,7 +301,10 @@ class EncodedArraySection(Section):
     self.encoded_array_map = OrderedDict()
     self.section_ = section_manager
     self.index = 0
+    self.frozen = False
   def add_item(self, value):
+    if self.frozen:
+      raise Exception('section is frozen')
     self.encoded_array_map[value] = value # set id
     self.index += 1
     for value in value.value_list:
@@ -264,7 +321,10 @@ class AnnotationSection(Section):
     self.annotation_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.frozen = False
   def add_item(self, dex_annotation):
+    if self.frozen:
+      raise Exception('section is frozen')
     self.annotation_map[dex_annotation] = self.index # set id
     self.get_section(SECTION_TYPE).add_item(dex_annotation.type)
     for elem in dex_annotation.elements:
@@ -282,7 +342,10 @@ class AnnotationSetSection(Section):
     self.index = 0
     self.section_ = section_manager
     self.annotation_offset_map = dict()
+    self.frozen = False
   def add_item(self, value):
+    if self.frozen:
+      raise Exception('section is frozen')
     self.annotation_set_map[self.index] = value # set id
     self.index += 1
     for x in value:

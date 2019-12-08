@@ -197,9 +197,11 @@ class SectionManager(object):
     proto_list = set()
     for clazz in dex_pool:
       for method in clazz.methods:
+        print('method_proto : {}'.format(method.proto))
         proto_list.add(method.proto)
     for proto_ in self.externel_manager.externel_proto_list:
       proto_list.add(proto_)
+    
     x = list(proto_list)
     for protos in x:
       section.add_item(protos)
@@ -278,6 +280,7 @@ class SectionManager(object):
       section.add_item(clazz.interfaces)
       for method in clazz.methods:
         section.add_item(method.proto.parameters)
+
     for type_list_ in self.externel_manager.externel_type_list_list:
       section.add_item(type_list_)
 
@@ -380,6 +383,9 @@ class DexWriter(object):
     #manager.build_annotation_section(dex_pool)
     #manager.build_annotation_set_section(dex_pool)
     manager.build_hiddenapi_class_data_item_section(dex_pool)
+    for x in manager.section_map:
+      manager.section_map[x].freeze()
+
     data_section_offset = manager.get_data_section_offset()
     buf = bytearray()
     header_writer = OutputStream(buf, 0)
@@ -429,13 +435,17 @@ class DexWriter(object):
   def write_strings(self, index_writer, offset_writer):
     self.string_index_section_offset = index_writer.get_position()
     self.string_data_section_offset = offset_writer.get_position()
+    size = 0
     for item in self.get_section(SECTION_STRING).get_items():
-      index_writer.write_int(offset_writer.get_position())
+      size += 1
+      item_off = offset_writer.get_position()
+      index_writer.write_uint(item_off)
       string_val = item
-      print('write_string : {}'.format(len(string_val)))
+
       offset_writer.write_uleb(len(string_val))
       offset_writer.write_string(string_val)
       offset_writer.write_ubyte(0)
+    
 
   def write_types(self, index_writer):
     self.type_section_offset = index_writer.get_position()
@@ -478,7 +488,6 @@ class DexWriter(object):
     code_item_offset = code_writer.get_position()
     code_writer.write_ushort(get_method_register_count(method))
     is_static = method.is_static()
-    print(method.proto)
     code_writer.write_ushort(
       get_parameter_register_count(method.proto.parameters, is_static)
     )
@@ -625,16 +634,22 @@ class DexWriter(object):
 
     for item in type_list_section.get_items():
       writer.align()
+      print('type list offset for {} : {:08x}({})'.format(item.list, writer.position, writer.position))
       type_list_section.set_offset_by_item(item, writer.position)
       types = item.get_types()
+      writer.write_uint(len(types))
       for t in types:
+        #print('write typeindex {} -> {}'.format(t, self.get_section(SECTION_TYPE).get_item_index(t)))
         writer.write_ushort(self.get_section(SECTION_TYPE).get_item_index(t))
 
 
   def write_protos(self, writer):
     self.proto_section_offset = writer.position
+    print('proto_section_offset : {:08x}'.format(writer.position))
     index = 0
     for item in self.get_section(SECTION_PROTO).get_items():
+      index += 1
+      print('write item : {}'.format(item))
       writer.write_int(
         self.get_section(SECTION_STRING).get_item_index(
           item.shorty
@@ -645,12 +660,16 @@ class DexWriter(object):
           item.return_type
         )
       )
+      param_off = self.get_section(SECTION_TYPE_LIST).get_offset_by_item(
+          item.parameters
+        )
+      print('param_off : {}'.format(param_off))
       writer.write_int(
         self.get_section(SECTION_TYPE_LIST).get_offset_by_item(
           item.parameters
         )
       )
-
+    print('proto size : {}'.format(index))
 
   def write_fields(self, writer):
     self.field_section_offset = writer.position
@@ -707,14 +726,13 @@ class DexWriter(object):
     index_writer.write_int(type_section.get_item_index(clazz.type))
     index_writer.write_int(clazz.access_flags)
     index_writer.write_int(type_section.get_item_index(clazz.superclass))
-    x = type_list_section.get_item_index(clazz.interfaces)
-    index_writer.write_int(type_list_section.get_item_index(clazz.interfaces))
+    index_writer.write_int(type_list_section.get_offset_by_item(clazz.interfaces))
     index_writer.write_int(clazz.annotation_directory_offset)
 
-    static_fields = clazz.get_sorted_static_fields()
-    instance_fields = clazz.get_sorted_instance_fields()
-    direct_methods = clazz.get_sorted_direct_methods()
-    virtual_methods = clazz.get_sorted_virtual_methods()
+    static_fields = clazz.get_sorted_static_fields(self.get_section(SECTION_FIELD))
+    instance_fields = clazz.get_sorted_instance_fields(self.get_section(SECTION_FIELD))
+    direct_methods = clazz.get_sorted_direct_methods(self.get_section(SECTION_METHOD))
+    virtual_methods = clazz.get_sorted_virtual_methods(self.get_section(SECTION_METHOD))
 
     offset = offset_writer.position
     clazz_has_data = len(static_fields) > 0 or len(instance_fields) > 0 or len(direct_methods) > 0 or len(virtual_methods) > 0
@@ -751,7 +769,7 @@ class DexWriter(object):
     
     for field in field_list:
       index = field_section.get_item_index(field)
-      print("index : {} prev_index : {}".format(index, prev_index))
+      #print("index : {} prev_index : {}".format(index, prev_index))
       offset_writer.write_uleb(index - prev_index)
       offset_writer.write_uleb(field.access_flags)
       prev_index = index
@@ -761,7 +779,7 @@ class DexWriter(object):
     method_section = self.get_section(SECTION_METHOD)
     for method in method_list:
       index = method_section.get_item_index(method)
-      print("index : {} prev_index : {}".format(index, prev_index))
+      #print("index : {} prev_index : {}".format(index, prev_index))
       offset_writer.write_uleb(index - prev_index)
       offset_writer.write_uleb(method.access_flags)
       offset_writer.write_uleb(method.code_item_offset)
@@ -930,6 +948,7 @@ class DexWriter(object):
     writer.write_int(0) # link
 
     writer.write_int(self.map_section_offset)
+
 
     self.write_section_info(writer, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
     self.write_section_info(writer, self.get_section(SECTION_TYPE).size(), self.type_section_offset)

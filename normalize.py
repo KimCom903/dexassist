@@ -70,16 +70,26 @@ class DexClassItem(object):
     self.static_initializers = None
     self.annotation_directory_offset = NO_OFFSET
   
-  def get_sorted_static_fields(self):
-    return list(filter(lambda x : x.is_static(), self.fields))
-  def get_sorted_instance_fields(self):
-    return list(filter(lambda x : not x.is_static(), self.fields))
+  def get_sorted_static_fields(self, section):
+    l =  list(filter(lambda x : x.is_static(), self.fields))
+    l.sort(key = lambda x : section.get_item_index(x))
+    return l
+  def get_sorted_instance_fields(self, section):
+    l = list(filter(lambda x : not x.is_static(), self.fields))
+    l.sort(key = lambda x : section.get_item_index(x))
+    return l
 
-  def get_sorted_direct_methods(self):
-    return self.get_direct_methods()
+  def get_sorted_direct_methods(self, section):
+    l = self.get_direct_methods()
+    l.sort(key = lambda x : section.get_item_index(x))
+    return l
+
   
-  def get_sorted_virtual_methods(self):
-    return self.get_virtual_methods()
+  def get_sorted_virtual_methods(self, section):
+    l = self.get_virtual_methods()
+    l.sort(key = lambda x : section.get_item_index(x))
+    return l
+
   def get_direct_methods(self):
     return list(filter(lambda x : x.is_direct_method(), self.methods))
   
@@ -113,7 +123,7 @@ class DexClassItem(object):
       editor = x.get_editor()
       for opcode in editor.opcodes:
         if opcode.op == OP_CONST_STRING:
-          ret.add(opcode.get_string())
+          ret.add(opcode.BBBB)
       ret.add(x.shorty)
       ret.add(x.name)
       ret.add(x.return_type)
@@ -142,7 +152,6 @@ class DexField(object):
       for ann in self.annotations:
         a.append('@' + str(ann))
       ret += ''.join(a)
-    print(ret)
     return ret
   def __hash__(self):
     return hash(self.name + self.clazz.name)
@@ -234,6 +243,10 @@ class DexProto(object):
     if self.shorty == othr.shorty:
       return True
     return False
+  def __lt__(self, other):
+    return str(self) < str(other)
+  def __gt__(self, other):
+    return str(self) > str(other)
   def __str__(self):
     return self.shorty
 
