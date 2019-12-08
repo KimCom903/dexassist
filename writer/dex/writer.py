@@ -294,7 +294,7 @@ class SectionManager(object):
 
 
   def build_code_item_section(self, method):
-    if method.get_editor() == 0: return
+    if method.get_editor() == None: return
 
     for code in method.get_editor().opcode_list:  
       item = code.get_item()
@@ -488,7 +488,6 @@ class DexWriter(object):
         if code_item_offset != NO_OFFSET:
           method.code_item_offset = code_item_offset + self.code_section_offset
           #code_offsets.append(CodeItemOffset(method, code_item_offset))
-    
     code_writer.write_to(offset_writer)
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
@@ -584,6 +583,7 @@ class DexWriter(object):
     return code_item_offset
 
   def calc_map_list_item_count(self):
+
     num_items = 2 # header, map_list_item
 
     if self.get_section(SECTION_STRING).size(): num_items += 1 # for data
@@ -609,7 +609,7 @@ class DexWriter(object):
   def write_map_item(self, offset_writer):
     offset_writer.align()
     self.map_section_offset = offset_writer.get_position()
-    num_items = self.calc_map_list_item_count()
+    num_items = self.calc_map_list_item_count() - 1 
     offset_writer.write_int(num_items)
 
     self.write_map_item_object(offset_writer, HEADER_ITEM, 1, 0)

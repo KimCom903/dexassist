@@ -172,7 +172,8 @@ class TempOutputStream(BaseWriteStream):
     self.position = 0
   
   def write_to(self, stream):
-    stream.buf[stream.position : stream.position + self.position] = self.buf
+    stream.write_arrays(self.buf)
+    #stream.buf[stream.position : stream.position + self.position] = self.buf
  
   def get_position(self):
     return self.position

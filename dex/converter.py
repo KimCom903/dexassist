@@ -15,8 +15,9 @@ class DexConverter(object):
       dex.add_class(self.create_dex_class(x, manager))
     for clazz in dex.classes:
       for method in clazz.methods:
-        for opcode in method.editor.opcode_list:
-          opcode.set_ref_item()
+        if method.editor:
+          for opcode in method.editor.opcode_list:
+            opcode.set_ref_item()
     return dex
   def translate_encoded_value(self, manager, encoded_value):
     if encoded_value.type == dex.ENCODED_VALUE_ARRAY:
@@ -151,7 +152,6 @@ class DexConverter(object):
       method_item = manager.method_list[method_idx]
       class_idx = method_item.class_idx
       proto_idx = method_item.proto_idx
-      dict_key = manager.string_list[proto.shorty_idx]
       name_idx = method_item.name_idx
 
       method_name = manager.string_list[name_idx]
@@ -208,13 +208,6 @@ def translate_encoded_value(manager, encoded_value):
         pt_idx = type_item.type_idx
         type_info = manager.type_list[pt_idx]
         parameters.append(type_info)
-        
-  elif encoded_value.type == normalize.VALUE_TYPE_FIELD:
-    class_type = manager.type_list[value.class_idx]
-    type_name = manager.type_list[value.type_idx]
-    name = manager.string_list[value.name_idx]
-    value = manager.create_field(class_type, name, type_name)
-  
     
     value = manager.create_method(class_type, method_name, shorty, parameters, return_type)
     
