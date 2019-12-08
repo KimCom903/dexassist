@@ -469,6 +469,10 @@ class DexWriter(object):
     self.debug_section_offset = offset_writer.get_position()
     # pass write debug section!
     code_writer = TempOutputStream(bytearray())
+
+    offset_writer.align()
+    self.code_section_offset = offset_writer.get_position()
+
     for clazz in self.get_section(SECTION_CLASS).get_items():
       direct_methods = clazz.get_direct_methods()
       virtual_methods = clazz.get_virtual_methods()
@@ -482,27 +486,25 @@ class DexWriter(object):
         debug_item_offset = 0
         code_item_offset = self.write_code_item(code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset)
         if code_item_offset != NO_OFFSET:
-          method.code_item_offset = code_item_offset
+          method.code_item_offset = code_item_offset + self.code_section_offset
           #code_offsets.append(CodeItemOffset(method, code_item_offset))
     
-    offset_writer.align()
-    self.code_section_offset = offset_writer.get_position()
     code_writer.write_to(offset_writer)
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
     self.num_code_item_items += 1
     code_writer.align()
     code_item_offset = code_writer.get_position()
-    code_writer.write_ushort(get_method_register_count(method))
+    code_writer.write_ushort(get_method_register_count(method)) # register
     is_static = method.is_static()
     code_writer.write_ushort(
       get_parameter_register_count(method.proto.parameters, is_static)
-    )
+    ) # ins
     if instructions is None:
-      code_writer.write_ushort(0)
-      code_writer.write_ushort(0)
-      code_writer.write_int(debug_item_offset)
-      code_writer.write_int(0)
+      code_writer.write_ushort(0) # outs
+      code_writer.write_ushort(0) # tries
+      code_writer.write_int(debug_item_offset) # debug_info_off
+      code_writer.write_int(0) # insns_size
       return code_item_offset
     #try_blocks = TryListBuilder.massage_try_blocks(try_blocks)
     out_param_count = 0
@@ -521,6 +523,11 @@ class DexWriter(object):
 
         if param_count > out_param_count: out_param_count = param_count
 
+    print('pos : {}'.format(code_item_offset))
+    print('out_param_count : {} try_blocks : {} debug_offset : 0 code_unit_count : {}'.format(
+      
+      out_param_count, len(try_blocks), code_unit_count
+    ))
     code_writer.write_ushort(out_param_count)
     code_writer.write_ushort(len(try_blocks))
     code_writer.write_int(debug_item_offset)
@@ -549,9 +556,11 @@ class DexWriter(object):
         raise Exception("try block has no exception handlers")
       
       offset = handler_map[try_block.get_exception_handlers()]
-      if offset == 0:
-        offset = ehbuf.get_position()
-        handler_map[try_block.get_exception_handlers()] = offset
+      if offset != 0:
+        code_writer.write_ushort(offset)
+        return
+      offset = ehbuf.get_position()
+      handler_map[try_block.get_exception_handlers()] = offset
       code_writer.write_ushort(offset)
 
       eh_size = len(try_block.get_exception_handlers())
@@ -571,7 +580,7 @@ class DexWriter(object):
           #catch(Throwable)
           ehbuf.write_uleb(code_addr)
     if ehbuf.get_position() > 0:
-      eubuf.write_to(code_writer)
+      ehbuf.write_to(code_writer)
     return code_item_offset
 
   def calc_map_list_item_count(self):
@@ -747,10 +756,13 @@ class DexWriter(object):
     clazz_has_data = len(static_fields) > 0 or len(instance_fields) > 0 or len(direct_methods) > 0 or len(virtual_methods) > 0
     if not clazz_has_data:
       offset = NO_OFFSET
-    
+    print('clazz.type : {} annotation_dir_offset : {} '.format(clazz.type, clazz.annotation_dir_offset))
+    print('static_fields : {} instance_fields : {} direct_methods : {} virtual_methods : {}'.format(
+      len(static_fields), len(instance_fields)
+    , len(direct_methods), len(virtual_methods)))
     index_writer.write_int(offset)
     encoded_array_section = self.get_section(SECTION_ENCODED_ARRAY)
-    if clazz.static_initializers is not None:
+    if clazz.static_initializers:
       offset = encoded_array_section.get_item(clazz.static_initializers).offset
     else:
       offset = NO_OFFSET

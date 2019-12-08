@@ -69,7 +69,10 @@ class DexClassItem(object):
     self.interfaces = []
     self.static_initializers = None
     self.annotation_dir_offset = NO_OFFSET
-  
+  def __lt__(self, other):
+    return str(self.type) < str(other.type)
+  def __gt__(self, other):
+    return str(self.type) > str(other.type)  
   def get_sorted_static_fields(self, section):
     l =  list(filter(lambda x : x.is_static(), self.fields))
     l.sort(key = lambda x : section.get_item_index(x))
