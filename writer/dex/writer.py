@@ -488,7 +488,6 @@ class DexWriter(object):
         if code_item_offset != NO_OFFSET:
           method.code_item_offset = code_item_offset + self.code_section_offset
           #code_offsets.append(CodeItemOffset(method, code_item_offset))
-    
     code_writer.write_to(offset_writer)
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
