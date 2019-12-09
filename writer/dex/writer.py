@@ -264,11 +264,8 @@ class SectionManager(object):
       clazz_list.add(clazz)
     for clazz in clazz_list:
       section.add_item(clazz)
-      #if clazz.annotations:
-        #self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
       self.get_section(SECTION_ENCODED_ARRAY).add_item(clazz.values)
       if clazz.annotations:
-        print(clazz.annotations)
         self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
 
   def build_call_site_id_section(self, dex_pool): # pass, for reflection
@@ -743,7 +740,7 @@ class DexWriter(object):
     index_writer.write_uint(clazz.access_flags)
     index_writer.write_uint(type_section.get_item_index(clazz.superclass))
     index_writer.write_uint(type_list_section.get_offset_by_item(clazz.interfaces))
-    index_writer.write_uint(0) # source_file_idx
+    index_writer.write_uint(string_section.get_item_index(clazz.source_file_name)) # source_file_idx
     index_writer.write_uint(clazz.annotation_dir_offset)
    
 
@@ -942,8 +939,7 @@ class DexWriter(object):
           continue
       self.num_annotation_directory_items += 1
       clazz.annotation_dir_offset = writer.position
-      writer.write_int(0)
-      ##writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
+      writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
       writer.write_int(field_annotations)
       writer.write_int(method_annotations)
       writer.write_int(param_annotations)

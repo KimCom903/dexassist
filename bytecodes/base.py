@@ -38,6 +38,10 @@ def translate_operand_type(opcode):
   return OPCODE_TABLE[opcode][2]
 class Instruction(object):
 
+  def write_op(self, stream, left, right):
+    val = (left << 8) & 0xff00
+    val |= right & 0xff
+    stream.write_ushort(val)
   @property
   def ref_type(self):
     if len(OPCODE_TABLE[self.get_op()]) == 2: return -1
@@ -140,8 +144,7 @@ class Instruction10x(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(0)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, 0, self.op)
     return len(self)
     
   def as_string(self):
@@ -164,8 +167,7 @@ class Instruction12x(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte((self.B << 4) + self.A)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, (self.B << 4) + self.A, self.op)
     return len(self)
   
   def as_string(self):
@@ -194,8 +196,7 @@ class Instruction11x(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(self.AA)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, self.AA, self.op)
     return len(self)
   
   def as_string(self): 
@@ -215,8 +216,7 @@ class Instruction10t(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(self.AA)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, self.AA, self.op)
     return len(self)
 
   def as_string(self):
@@ -236,8 +236,8 @@ class Instruction20t(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(0)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, 0, self.op)
+    stream.write_ushort(0x00 | (self.op & 0xff))
     stream.write_ushort(self.AAAA)
     return len(self)
   
@@ -257,8 +257,7 @@ class Instruction20bc(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(self.AA)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, self.AA, self.op)
     stream.write_ushort(manager.get_section(self.get_section_type(self.op)).get_item_index(self.BBBB))
     return len(self)
   
@@ -287,8 +286,7 @@ class Instruction22x(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(self.AA)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, self.AA, self.op)
     stream.write_ushort(self.BBBB)
     return len(self)
 
@@ -346,8 +344,7 @@ class Instruction21c(Instruction22x):
     return self.as_string()
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(self.AA)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, self.AA, self.op)
     stream.write_ushort(manager.get_section(self.get_section_type(self.op)).get_item_index(self.BBBB))
     return len(self)
 
@@ -364,10 +361,8 @@ class Instruction23x(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(self.AA)
-    stream.write_ubyte(self.op)
-    stream.write_ubyte(self.CC)
-    stream.write_ubyte(self.BB)
+    self.write_op(stream, self.AA, self.op)
+    self.write_op(stream, self.CC, self.BB)
     return len(self)
   
   def as_string(self):
@@ -399,8 +394,7 @@ class Instruction22t(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte((self.B << 4) + self.A)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, (self.B << 4) + self.A, self.op)
     stream.write_ushort(self.CCCC)
     return len(self)
   
@@ -439,8 +433,7 @@ class Instruction22c(Instruction22t):
     self.CCCC = self.get_typeindex_item(self.op, self.CCCC)
     
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte((self.B << 4) + self.A)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, (self.B << 4) + self.A, self.op)
     stream.write_ushort(manager.get_section(self.get_section_type(self.op)).get_item_index(self.CCCC))
     return len(self)
 
@@ -466,8 +459,7 @@ class Instruction30t(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(0)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, 0, self.op)
     stream.write_uint(self.AAAAAAAA)
     return len(self)
   
@@ -492,8 +484,7 @@ class Instruction32x(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(0)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, 0, self.op)
     stream.write_ushort(self.AAAA)
     stream.write_ushort(self.BBBB)
     return len(self)
@@ -518,8 +509,7 @@ class Instruction31i(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(self.AA)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, self.AA, self.op)
     stream.write_uint(self.BBBBBBBB)
     return len(self)
   
@@ -556,8 +546,7 @@ class Instruction31c(Instruction31i):
     self.BBBBBBBB = self.get_typeindex_item(self.op, self.BBBBBBBB)
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(self.AA)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, self.AA, self.op)
     stream.write_uint(manager.get_section(self.get_section_type(self.op)).get_item_index(self.BBBBBBBB))
     return len(self)
   
@@ -583,11 +572,9 @@ class Instruction35c(Instruction):
   def ref(self):
     return self.BBBB
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte((self.A << 4) + self.G)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, (self.A << 4) + self.G, self.op)
     stream.write_ushort(manager.manager.method_section.get_item_index(self.BBBB))
-    stream.write_ubyte((self.F << 4) + self.E)
-    stream.write_ubyte((self.D << 4) + self.C)
+    self.write_op(stream, (self.F << 4) + self.E, (self.D << 4) + self.C)
     return len(self)
   
   def as_string(self):
@@ -666,8 +653,7 @@ class Instruction3rc(Instruction):
   def ref(self):
     return self.BBBB
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(self.AA)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, self.AA, self.op)
     stream.write_ushort(manager.get_section(self.get_section_type(self.op)).get_item_index(self.BBBB))
     stream.write_ushort(self.CCCC)
     return len(self)
@@ -719,11 +705,9 @@ class Instruction45cc(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte((self.A << 4) + self.G)
-    stream.write_ubyte(self.op)
-    stream.write_ushort(manager.get_section(SECTION_MEHTOD).get_item_index(self.BBBB))
-    stream.write_ubyte((self.F << 4) + self.E)
-    stream.write_ubyte((self.D << 4) + self.C)
+    self.write_op(stream, (self.A << 4) + self.G, self.op)
+    stream.write_ushort(manager.get_section(SECTION_METHOD).get_item_index(self.BBBB))
+    self.write_op(stream, (self.F << 4) + self.E, (self.D << 4) + self.C)
     stream.wrtie_ushort(manager.get_section(SECTION_PROTO).get_item_index(self.HHHHH))
     return len(self)  
   
@@ -773,11 +757,10 @@ class Instruction4rcc(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(self.AA)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, self.AA, self.op)
     stream.write_ushort(manager.get_section(SECTION_METHOD).get_item_index(self.BBBB))
     stream.write_ushort(self.CCCC)
-    stream.write_ushort(manager.get_section(SECIONT_PROTO).get_item_index(self.HHHH))
+    stream.write_ushort(manager.get_section(SECTION_PROTO).get_item_index(self.HHHH))
     return len(self) 
 
   def set_ref_item(self):
@@ -811,8 +794,7 @@ class Instruction51l(Instruction):
     pass
 
   def write_byte_stream(self, stream, manager):
-    stream.write_ubyte(self.AA)
-    stream.write_ubyte(self.op)
+    self.write_op(stream, self.AA, self.op)
     stream.write_ulong(self.BBBBBBBBBBBBBBBB)
     return len(self)
 
