@@ -200,10 +200,20 @@ class SectionManager(object):
       type_list.update(clazz.interfaces)
       for field in clazz.fields:
         type_list.add(field.type)
+        for ann in field.annotations:
+          type_list.add(ann.type)
+
       for method in clazz.methods:
         type_list.add(method.return_type)
         for parameter in method.params:
           type_list.add(parameter)
+        for ann in method.annotations:
+          type_list.add(ann.type)
+        for ann in method.param_annotations:
+          type_list.add(ann.type)
+      for ann in clazz.annotations:
+        type_list.add(ann.type)
+
     for type_ in self.externel_manager.externel_type_list:
       type_list.add(type_)
     x = list(type_list)
@@ -840,12 +850,15 @@ class DexWriter(object):
     for ann in annotation_section.get_items():
       ann.offset = writer.position
       writer.write_ubyte(ann.visibility)
+      print('annotation type : {}'.format(ann.type))
       writer.write_uleb(type_section.get_item_index(ann.type))
       elems = ann.elements
       writer.write_uleb(len(elems))
       for elem in elems:
-        writer.write_uleb(string_section.get_item_index(elem[0]))
-        self.write_encoded_value(writer, elem[1])    
+        name_idx = string_section.get_item_index(elem[0])
+        print('{} name idx : {}'.format(elem[0], name_idx))
+        writer.write_uleb(name_idx)
+        self.write_encoded_value(writer, elem[1])
 
 
   def write_annotation_sets(self, writer):
@@ -854,9 +867,11 @@ class DexWriter(object):
     if self.should_create_empty_annotation_set(): writer.write_int(0)
 
     annotation_set_section = self.get_section(SECTION_ANNOTATION_SET)
+    print(annotation_set_section.reverse_annotation_set_map)
     for index in annotation_set_section.get_items():
-      
       annotations = annotation_set_section.get_item_by_index(index)
+      print('process annotation : {}'.format([str(x) for x in annotations]))
+
       writer.align()
       annotation_set_section.set_offset_by_index(index, writer.position)
       writer.write_int(len(annotations))
@@ -948,18 +963,18 @@ class DexWriter(object):
           continue
       self.num_annotation_directory_items += 1
       clazz.annotation_dir_offset = writer.position
-      writer.write_int(0)
-      ##writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
+      #writer.write_int(0)
+      writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
       writer.write_int(field_annotations)
       writer.write_int(method_annotations)
       writer.write_int(param_annotations)
       tmp_buffer.write_to(writer)
 
   def write_encoded_value(self, writer, val):
-    if isinstance(val, list):
-      for x in val:
-        self.write_encoded_value(writer, x)
-      return
+    #if isinstance(val, list):
+    #  for x in val:
+    #    self.write_encoded_value(writer, x)
+    #  return
     if not isinstance(val, DexValue):
       val = DexValue(val)
     val.encode(self.manager, writer)

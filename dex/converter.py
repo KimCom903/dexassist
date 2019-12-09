@@ -19,15 +19,9 @@ class DexConverter(object):
         for opcode in method.editor.opcode_list:
           opcode.set_ref_item()
     return dex
-  def translate_encoded_value(self, manager, encoded_value):
-    if encoded_value.type == dex.ENCODED_VALUE_ARRAY:
-      pass
-    if encoded_value.type == dex.ENCODED_VALUE_STRING:
-      pass
-    if encoded_value.type == dex.ENCODED_VALUE_METHOD:
-      pass
+  def translate_encoded_value(self, parent, manager, encoded_value):
 
-    return translate_encoded_value(manager, encoded_value)
+    return translate_encoded_value(parent, manager, encoded_value)
 
   def extract_from_annotation_set_item(self, parent, manager, annotation_set_item):
     ret = []
@@ -36,13 +30,13 @@ class DexConverter(object):
       visibility = annotation_item.visibility
       type_idx = annotation_item.annotation.type_idx
       elements = []
-      type_name = manager.string_list[type_idx]
+      type_name = manager.type_list[type_idx]
       for x in range(annotation_item.annotation.size):
         name_idx = annotation_item.annotation.elements[x].name_idx
         value = annotation_item.annotation.elements[x].value
 
         elements.append((manager.string_list[name_idx],
-            self.translate_encoded_value(manager, value)
+            self.translate_encoded_value(parent, manager, value)
         ))
       ret.append(
         normalize.DexAnnotation(parent, visibility, type_name, elements)
@@ -198,7 +192,7 @@ class DexConverter(object):
 
 
 
-def translate_encoded_value(manager, encoded_value):
+def translate_encoded_value(parent, manager, encoded_value):
   #print('translate value(type : {}) : {} -> {}'.format(encoded_value.type, encoded_value, encoded_value.value))
   value = encoded_value.value
   if encoded_value.type == normalize.VALUE_TYPE_METHOD:
@@ -224,7 +218,7 @@ def translate_encoded_value(manager, encoded_value):
       key_name_tuples.append((
         manager.string_list[x.name_idx], translate_encoded_value(manager, x.value)
       ))
-    value = normalize.DexAnnotation(None, None, type_name, key_name_tuples)
+    value = normalize.DexAnnotation(parent, None, type_name, key_name_tuples)
 
   if encoded_value.type == normalize.VALUE_TYPE_FIELD:
     parent = manager.type_list[value.class_idx]
@@ -239,7 +233,7 @@ def translate_encoded_value(manager, encoded_value):
   
   if encoded_value.type == normalize.VALUE_TYPE_ARRAY:
     values = value.values
-    ret = [translate_encoded_value(manager, x) for x in values]
+    ret = [translate_encoded_value(parent, manager, x) for x in values]
     return ret
 
 
