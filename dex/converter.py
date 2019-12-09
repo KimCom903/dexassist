@@ -15,6 +15,7 @@ class DexConverter(object):
       dex.add_class(self.create_dex_class(x, manager))
     for clazz in dex.classes:
       for method in clazz.methods:
+        if method.editor is None: continue
         for opcode in method.editor.opcode_list:
           opcode.set_ref_item()
     return dex
@@ -68,7 +69,7 @@ class DexConverter(object):
         print("source file idx {} is not in string_list".format(cdi.source_file_idx))
 
     if cdi.static_values:
-      item.static_initializer = [x.value for x in cdi.static_values.value.values]
+      item.static_initializers = [x.value for x in cdi.static_values.value.values]
     field_annotation_table = {}
     method_annotation_table = {}
     param_annotation_table = {}
@@ -153,7 +154,6 @@ class DexConverter(object):
       method_item = manager.method_list[method_idx]
       class_idx = method_item.class_idx
       proto_idx = method_item.proto_idx
-      dict_key = manager.string_list[proto.shorty_idx]
       name_idx = method_item.name_idx
 
       method_name = manager.string_list[name_idx]
@@ -162,6 +162,7 @@ class DexConverter(object):
       
       proto = manager.proto_list[proto_idx]
       proto_shorty = manager.string_list[proto.shorty_idx]
+      dict_key = manager.string_list[proto.shorty_idx]
       return_type_idx = proto.return_type_idx
       parameter = []
       return_type = manager.type_list[return_type_idx]
@@ -214,7 +215,31 @@ def translate_encoded_value(manager, encoded_value):
         parameters.append(type_info)
     
     value = manager.create_method(class_type, method_name, shorty, parameters, return_type)
+
+  if encoded_value.type == normalize.VALUE_TYPE_ANNOTATION:
+    type_name = manager.type_list[value.type_idx]
+    key_name_tuples = []
+    for x in value.elements:
+      key_name_tuples.append((
+        manager.string_list[x.name_idx], translate_encoded_value(manager, x.value)
+      ))
+    value = normalize.DexAnnotation(None, None, type_name, key_name_tuples)
+
+  if encoded_value.type == normalize.VALUE_TYPE_FIELD:
+    parent = manager.type_list[value.class_idx]
+    field_name = manager.string_list[value.name_idx]
+    type_name = manager.type_list[value.type_idx]
+    access_flags = 0
     
+    value = normalize.DexField(parent, field_name, type_name, access_flags)
+  
+  if encoded_value.type == normalize.VALUE_TYPE_BOOLEAN:
+    value = normalize.DexValue(True if value else False, value_type=normalize.VALUE_TYPE_BOOLEAN)
+  
+  if encoded_value.type == normalize.VALUE_TYPE_ARRAY:
+    values = translate_encoded_array(value)
+    return [translate_encoded_value(manager, x) for x in values]
+
 
   return normalize.DexValue(value, encoded_value.type)
 

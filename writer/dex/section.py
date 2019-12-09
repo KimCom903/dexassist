@@ -110,7 +110,6 @@ class ProtoSection(Section):
   def add_item(self, dex_proto):
     if self.frozen:
       raise Exception('section is frozen')
-    print('proto : {}'.format(dex_proto))
   
     if dex_proto in self.proto_map: return
 
@@ -227,7 +226,6 @@ class TypeListSection(Section):
     if len(item) == 0: return 0
     key = TypeListItem(item)
 
-    print('get offset : {}, return {}'.format(item, self.offset_map[key]))
     return self.offset_map[key]
   def get_item(self, value):
     value = TypeListItem(value)
@@ -322,6 +320,10 @@ class EncodedArraySection(Section):
   def hash(self, item):
     return ''.join(str(x) for x in item)
 
+  def get_item(self, value):
+    print(value)
+    return self.encoded_array_map[value]
+
   def get_items(self):
     return list(self.encoded_array_map.values())
   
@@ -362,7 +364,12 @@ class AnnotationSetSection(Section):
     self.annotation_set_map[self.index] = value # set id
     self.index += 1
     for x in value:
-      self.get_section(SECTION_ANNOTATION).add_item(x)
+      if x:
+        if isinstance(x, list):
+          for _x in x:
+            self.get_section(SECTION_ANNOTATION).add_item(_x)
+        else:
+          self.get_section(SECTION_ANNOTATION).add_item(x)
   def get_items(self):
     return self.annotation_set_map
     #return list(self.annotation_set_map.values())
