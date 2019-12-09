@@ -215,7 +215,31 @@ def translate_encoded_value(manager, encoded_value):
         parameters.append(type_info)
     
     value = manager.create_method(class_type, method_name, shorty, parameters, return_type)
+
+  if encoded_value.type == normalize.VALUE_TYPE_ANNOTATION:
+    type_name = manager.type_list[value.type_idx]
+    key_name_tuples = []
+    for x in value.elements:
+      key_name_tuples.append((
+        manager.string_list[x.name_idx], translate_encoded_value(manager, x.value)
+      ))
+    value = normalize.DexAnnotation(None, None, type_name, key_name_tuples)
+
+  if encoded_value.type == normalize.VALUE_TYPE_FIELD:
+    parent = manager.type_list[value.class_idx]
+    field_name = manager.string_list[value.name_idx]
+    type_name = manager.type_list[value.type_idx]
+    access_flags = 0
     
+    value = normalize.DexField(parent, field_name, type_name, access_flags)
+  
+  if encoded_value.type == normalize.VALUE_TYPE_BOOLEAN:
+    value = normalize.DexValue(True if value else False, value_type=normalize.VALUE_TYPE_BOOLEAN)
+  
+  if encoded_value.type == normalize.VALUE_TYPE_ARRAY:
+    values = translate_encoded_array(value)
+    return [translate_encoded_value(manager, x) for x in values]
+
 
   return normalize.DexValue(value, encoded_value.type)
 

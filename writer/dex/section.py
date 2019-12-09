@@ -110,15 +110,12 @@ class ProtoSection(Section):
   def add_item(self, dex_proto):
     if self.frozen:
       raise Exception('section is frozen')
-    print('proto : {}'.format(dex_proto))
   
     if dex_proto in self.proto_map: return
 
     self.proto_map[dex_proto] = self.index # set id
     self.index += 1
   def get_item(self, value):
-    for x in range(1000):
-      print('getitem called!')
     return list(self.proto_map.keys())[value]
   def get_items(self):
     x = list(self.proto_map.keys())
@@ -184,6 +181,7 @@ class ClassSection(Section):
     return list(self.class_map.keys())[value]
   def get_items(self):
     x = list(self.class_map.keys())
+    x.sort()
     return x
   def get_item_index(self, value):
     return self.class_map[value]    
@@ -227,7 +225,6 @@ class TypeListSection(Section):
     if len(item) == 0: return 0
     key = TypeListItem(item)
 
-    print('get offset : {}, return {}'.format(item, self.offset_map[key]))
     return self.offset_map[key]
   def get_item(self, value):
     value = TypeListItem(value)
