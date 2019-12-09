@@ -322,6 +322,10 @@ class EncodedArraySection(Section):
   def hash(self, item):
     return ''.join(str(x) for x in item)
 
+  def get_item(self, value):
+    print(value)
+    return self.encoded_array_map[value]
+
   def get_items(self):
     return list(self.encoded_array_map.values())
   

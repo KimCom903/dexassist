@@ -156,8 +156,6 @@ class SectionManager(object):
     elif value.value_type == VALUE_TYPE_ENUM or value.value_type == VALUE_TYPE_FIELD:
       self.get_section(SECTION_FIELD).add_item(value.value)
     elif value.value_type == VALUE_TYPE_METHOD:
-      print('add method : ')
-      print(value.value)
       self.get_section(SECTION_METHOD).add_item(value.value)
     elif value.value_type == VALUE_TYPE_METHOD_HANDLE:
       self.get_section(SECTION_METHOD_HANDLE).add_item(value.value)
@@ -267,7 +265,6 @@ class SectionManager(object):
         #self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
       self.get_section(SECTION_ENCODED_ARRAY).add_item(clazz.values)
       if clazz.annotations:
-        print(clazz.annotations)
         self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
 
   def build_call_site_id_section(self, dex_pool): # pass, for reflection
@@ -520,12 +517,7 @@ class DexWriter(object):
           #param_count = self.get_param_register_count(method_ref, InstructionUtil.is_invoke_static(opcode))
 
         if param_count > out_param_count: out_param_count = param_count
-
-    print('pos : {}'.format(code_item_offset))
-    print('out_param_count : {} try_blocks : {} debug_offset : 0 code_unit_count : {}'.format(
       
-      out_param_count, len(try_blocks), code_unit_count
-    ))
     code_writer.write_ushort(out_param_count)
     code_writer.write_ushort(len(try_blocks))
     code_writer.write_int(debug_item_offset)
@@ -648,7 +640,6 @@ class DexWriter(object):
 
     for item in type_list_section.get_items():
       writer.align()
-      print('type list offset for {} : {:08x}({})'.format(item.list, writer.position, writer.position))
       type_list_section.set_offset_by_item(item, writer.position)
       types = item.get_types()
       writer.write_uint(len(types))
@@ -675,13 +666,11 @@ class DexWriter(object):
       param_off = self.get_section(SECTION_TYPE_LIST).get_offset_by_item(
           item.parameters
         )
-      print('param_off : {}'.format(param_off))
       writer.write_int(
         self.get_section(SECTION_TYPE_LIST).get_offset_by_item(
           item.parameters
         )
       )
-    print('proto size : {}'.format(index))
 
   def write_fields(self, writer):
     self.field_section_offset = writer.position
@@ -707,8 +696,6 @@ class DexWriter(object):
       x.index = index
       index += 1
       writer.write_ushort(type_section.get_item_index(x.clazz.type))
-      print('{} - {}'.format(x.name, x.proto))
-      print(x.proto.parameters)
       writer.write_ushort(proto_section.get_item_index(x.proto))
       writer.write_int(string_section.get_item_index(x.name))
 
@@ -757,6 +744,7 @@ class DexWriter(object):
     index_writer.write_int(offset)
     encoded_array_section = self.get_section(SECTION_ENCODED_ARRAY)
     if clazz.static_initializers:
+      print("static initializers are present")
       offset = encoded_array_section.get_item(clazz.static_initializers).offset
     else:
       offset = NO_OFFSET
