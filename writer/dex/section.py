@@ -410,6 +410,8 @@ class AnnotationSetSection(Section):
     self.annotation_set_map[key] = self.index # set id
     self.reverse_annotation_set_map[self.index] = value
     self.index += 1
+    if value is None:
+      return
     for x in value:
       if x:
         if isinstance(x, list):
@@ -429,6 +431,7 @@ class AnnotationSetSection(Section):
 
   def hash(self, item):
     key = ''
+    if item is None: return 'None'
     for x in item:
       key += x.type_name
       for elem in x.elements:

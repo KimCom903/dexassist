@@ -11,7 +11,7 @@ from writer.dex.util import InstructionUtil
 from writer.dex.stream import OutputStream
 from writer.dex.stream import TempOutputStream
 from writer.dex.stream import InstructionWriter
-from normalize import DexValue
+from normalize import DexValue, DexMethod, DexField
 NO_INDEX = -1
 NO_OFFSET = 0
 
@@ -155,7 +155,6 @@ class SectionManager(object):
     
     if not isinstance(value, DexValue):
       item = DexValue(value)
-      print(item.get_type())
       return self.add_encoded_value(item)
 
     elif value.get_type() == VALUE_TYPE_ARRAY:
@@ -171,10 +170,14 @@ class SectionManager(object):
     elif value.get_type() == VALUE_TYPE_TYPE:
       self.get_section(SECTION_TYPE).add_item(value.value)
     elif value.get_type() == VALUE_TYPE_ENUM or value.get_type() == VALUE_TYPE_FIELD:
+      print('add value : {}'.format(value.value))
       self.get_section(SECTION_FIELD).add_item(value.value)
+      self.get_section(SECTION_TYPE).add_item(value.value.type)
+      self.get_section(SECTION_TYPE).add_item(value.value.clazz) # for external field
     elif value.get_type() == VALUE_TYPE_METHOD:
       self.get_section(SECTION_METHOD).add_item(value.value)
     elif value.get_type() == VALUE_TYPE_METHOD_HANDLE:
+      raise Exception("Method Handle is not supported")
       self.get_section(SECTION_METHOD_HANDLE).add_item(value.value)
     elif value.get_type() == VALUE_TYPE_METHOD_TYPE:
       self.get_section(SECTION_PROTO).add_item(value.value.get_protos())
@@ -196,8 +199,10 @@ class SectionManager(object):
     section = self.get_section(SECTION_TYPE)
     type_list = set()
     for clazz in dex_pool:
+      print('class type : {}'.format(clazz.type))
       type_list.add(clazz.type)
       type_list.update(clazz.interfaces)
+      
       for field in clazz.fields:
         type_list.add(field.type)
         for ann in field.annotations:
@@ -209,8 +214,11 @@ class SectionManager(object):
           type_list.add(parameter)
         for ann in method.annotations:
           type_list.add(ann.type)
-        for ann in method.param_annotations:
-          type_list.add(ann.type)
+        if method.param_annotations:
+          for ann_list in method.param_annotations:
+            if ann_list:
+              for ann in ann_list:
+                type_list.add(ann.type)
       for ann in clazz.annotations:
         type_list.add(ann.type)
 
@@ -223,17 +231,22 @@ class SectionManager(object):
 
   def build_proto_section(self, dex_pool):
     section = self.get_section(SECTION_PROTO)
+    string_section = self.get_section(SECTION_STRING)
     proto_list = set()
     for clazz in dex_pool:
       for method in clazz.methods:
         proto_list.add(method.proto)
     for proto_ in self.externel_manager.externel_proto_list:
       proto_list.add(proto_)
+      
     
     x = list(proto_list)
     for protos in x:
       section.add_item(protos)
-
+      string_section.add_item(protos.shorty)
+      string_section.add_item(protos.return_type)
+      for param in protos.parameters:
+        string_section.add_item(param)
   def build_field_section(self, dex_pool):
     section = self.get_section(SECTION_FIELD)
     field_list = set()
@@ -266,7 +279,8 @@ class SectionManager(object):
       if method.annotations:
         self.get_section(SECTION_ANNOTATION_SET).add_item(method.annotations)
       if method.param_annotations:
-          self.get_section(SECTION_ANNOTATION_SET).add_item(method.param_annotations)
+        for ann in method.param_annotations:
+          self.get_section(SECTION_ANNOTATION_SET).add_item(ann)
 
 
   def get_data_section_offset(self):

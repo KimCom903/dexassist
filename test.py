@@ -22,7 +22,6 @@ def duplicate_dex(dex_path):
   stream = dex.StreamReader(x, manager)
   header = dex.HeaderItem(manager, stream, 0)
   mdex = converter.DexConverter().get_dex(header, manager)
-  print(dir(writer_dex))
   buf = bytearray()
   stream = OutputStream(buf,0)
   #mdex.write(stream)
@@ -33,8 +32,8 @@ def duplicate_dex(dex_path):
 def main():
   #print_dex('test_binary/classes.dex')
   #print_dex('test_binary/more_large.dex')
-  duplicate_dex('test_binary/classes.dex')
-  #duplicate_dex('test_binary/large.dex')
+  #duplicate_dex('test_binary/classes.dex')
+  duplicate_dex('test_binary/large.dex')
 
 if __name__ == '__main__':
   main()

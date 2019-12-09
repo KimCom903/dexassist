@@ -64,7 +64,9 @@ class Dex(object):
 
   def add_class(self, clazz):
     self.classes.append(clazz)
-
+  def get_class(self, clazz_type):
+    for clazz in self.classes:
+      if clazz.type == clazz_type: return clazz
 class DexClassItem(object):
   def __init__(self):
     self.index = NO_INDEX
@@ -145,6 +147,8 @@ class DexClassItem(object):
     for x in self.methods:
       editor = x.get_editor()
       if editor is None: continue
+
+
       for opcode in editor.opcodes:
         if opcode.op == OP_CONST_STRING:
           ret.add(opcode.BBBB)
@@ -152,10 +156,12 @@ class DexClassItem(object):
         ret.add(ann.type)
         for ele in ann.elements:
           ret.add(ele[0])
-      for ann in x.param_annotations:
-        ret.add(ann.type)
-        for ele in ann.elements:
-          ret.add(ele[0])
+      for ann_list in x.param_annotations:
+        if ann_list:
+          for ann in ann_list:
+            ret.add(ann.type)
+            for ele in ann.elements:
+              ret.add(ele[0])
       ret.add(x.shorty)
       ret.add(x.name)
       ret.add(x.return_type)
@@ -190,7 +196,11 @@ class DexField(object):
       ret += ''.join(a)
     return ret
   def __hash__(self):
-    return hash(self.name + self.clazz.name)
+    try:
+      return hash(self.name + self.clazz.name)
+    except:
+      # for external field:
+      return hash(str(self.name + self.clazz))
   def __eq__(self,othr):
     if(hash(othr) == hash(self)):
       return True
@@ -289,7 +299,6 @@ class DexProto(object):
 
 class DexAnnotation(object):
   def __init__(self, target, visibility, type_name, key_name_tuples):
-    print('create annotation with type_name : {}'.format(type_name))
     self.target = target
     self.visibility = visibility
     self.type_name = type_name
