@@ -847,16 +847,23 @@ class DexWriter(object):
     annotation_section = self.get_section(SECTION_ANNOTATION)
     type_section = self.get_section(SECTION_TYPE)
     string_section = self.get_section(SECTION_STRING)
+    
     for ann in annotation_section.get_items():
       ann.offset = writer.position
       writer.write_ubyte(ann.visibility)
-      print('annotation type : {}'.format(ann.type))
       writer.write_uleb(type_section.get_item_index(ann.type))
       elems = ann.elements
       writer.write_uleb(len(elems))
+      print('annotation type : {}'.format(ann.type))
+      print('elements size : {}'.format(len(elems)))
       for elem in elems:
         name_idx = string_section.get_item_index(elem[0])
-        print('{} name idx : {}'.format(elem[0], name_idx))
+        if isinstance(elem[1], list):
+          print(' {} - {}'.format(elem[0], [str(x) for x in elem[1]]))
+
+        else:
+          print(' {} - {}'.format(elem[0], elem[1]))
+
         writer.write_uleb(name_idx)
         self.write_encoded_value(writer, elem[1])
 

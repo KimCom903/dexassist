@@ -347,12 +347,15 @@ class DexValue(object):
     if encoded_type in [VALUE_TYPE_BOOLEAN, VALUE_TYPE_NULL]: return
 
     if encoded_type == VALUE_TYPE_ARRAY:
+      print('array length : {}'.format(len(self.value)))
       stream.write_uleb(len(self.value))
       for x in self.value:
         x.encode(manager, stream)
       return
 
     if encoded_type == VALUE_TYPE_ANNOTATION:
+      raise Exception('do not write annotation in encode')
+
       stream.write_uleb(manager.type_section.get_item_index(self.value.type))
       stream.write_uleb(len(self.value.elements))
       for elem in self.value.elements:
@@ -363,7 +366,7 @@ class DexValue(object):
       return
 
     stream.write_byte_array(encoded_value)
-    stream.position += len(encoded_value)
+    #stream.position += len(encoded_value)
 
   def __str__(self):
     return format('type : {:04x} value : {}'.format(self.value_type, self.value))
