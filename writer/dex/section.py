@@ -366,7 +366,12 @@ class AnnotationSetSection(Section):
     self.annotation_set_map[self.index] = value # set id
     self.index += 1
     for x in value:
-      self.get_section(SECTION_ANNOTATION).add_item(x)
+      if x:
+        if isinstance(x, list):
+          for _x in x:
+            self.get_section(SECTION_ANNOTATION).add_item(_x)
+        else:
+          self.get_section(SECTION_ANNOTATION).add_item(x)
   def get_items(self):
     return self.annotation_set_map
     #return list(self.annotation_set_map.values())

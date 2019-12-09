@@ -239,7 +239,7 @@ class SectionManager(object):
       if method.annotations:
         self.get_section(SECTION_ANNOTATION_SET).add_item(method.annotations)
       if method.param_annotations:
-          self.get_section(SECTION_ANNOTATION_SET).add_item(param.annotations)
+          self.get_section(SECTION_ANNOTATION_SET).add_item(method.param_annotations)
 
 
   def get_data_section_offset(self):
@@ -291,6 +291,7 @@ class SectionManager(object):
 
   def build_code_item_section(self, method):
     if method.get_editor() == 0: return
+    if method.get_editor() is None: return
 
     for code in method.get_editor().opcode_list:  
       item = code.get_item()

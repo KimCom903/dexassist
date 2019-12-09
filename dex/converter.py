@@ -15,6 +15,7 @@ class DexConverter(object):
       dex.add_class(self.create_dex_class(x, manager))
     for clazz in dex.classes:
       for method in clazz.methods:
+        if method.editor is None: continue
         for opcode in method.editor.opcode_list:
           opcode.set_ref_item()
     return dex
@@ -153,7 +154,6 @@ class DexConverter(object):
       method_item = manager.method_list[method_idx]
       class_idx = method_item.class_idx
       proto_idx = method_item.proto_idx
-      dict_key = manager.string_list[proto.shorty_idx]
       name_idx = method_item.name_idx
 
       method_name = manager.string_list[name_idx]
@@ -162,6 +162,7 @@ class DexConverter(object):
       
       proto = manager.proto_list[proto_idx]
       proto_shorty = manager.string_list[proto.shorty_idx]
+      dict_key = manager.string_list[proto.shorty_idx]
       return_type_idx = proto.return_type_idx
       parameter = []
       return_type = manager.type_list[return_type_idx]
