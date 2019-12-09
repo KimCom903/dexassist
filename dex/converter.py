@@ -57,10 +57,11 @@ class DexConverter(object):
     item.superclass = manager.type_list[cdi.superclass_idx]
     item.interfaces = [manager.type_list[x] for x in cdi.interfaces]
     item.name = item.type
-    item.values = normalize.DexArray()
-    if cdi.static_values :
-      for x in cdi.static_values.value.values:
-        item.values.value_list.append(normalize.DexValue(x.value, x.type))
+    item.values = []
+
+#    if cdi.static_values :
+#      for x in cdi.static_values.value.values:
+#        item.values.append(normalize.DexValue(x.value, x.type))
     if cdi.source_file_idx:
       try:
         item.source_file_name = manager.string_list[cdi.source_file_idx]
@@ -237,15 +238,12 @@ def translate_encoded_value(manager, encoded_value):
     value = normalize.DexValue(True if value else False, value_type=normalize.VALUE_TYPE_BOOLEAN)
   
   if encoded_value.type == normalize.VALUE_TYPE_ARRAY:
-    values = translate_encoded_array(value)
-    return [translate_encoded_value(manager, x) for x in values]
+    values = value.values
+    ret = [translate_encoded_value(manager, x) for x in values]
+    return ret
 
 
   return normalize.DexValue(value, encoded_value.type)
-
-def translate_encoded_array(encoded_array):
-  #print(encoded_array)
-  return [x.value for x in encoded_array.values]
 
 def code_to_editor(manager, code):
   e = editor.Editor()
