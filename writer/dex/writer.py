@@ -118,8 +118,17 @@ def get_parameter_register_count(parameters, is_static):
 
 class SectionManager(object):
   @property
+  def type_section(self):
+    return self.get_section(SECTION_TYPE)
+  @property
+  def field_section(self):
+    return self.get_section(SECTION_FIELD)
+  @property
   def method_section(self):
     return self.get_section(SECTION_METHOD)
+  @property
+  def string_section(self):
+    return self.get_section(SECTION_STRING)
   def __init__(self, manager):
     self.section_map = {
       SECTION_STRING: StringSection(self),
@@ -140,25 +149,34 @@ class SectionManager(object):
     return self.section_map[key]
 
   def add_encoded_value(self, value):
-    if value.value_type == VALUE_TYPE_ARRAY:
-      for v in value.value.value:       
-        self.add_encoded_value(DexValue(v.value, v.value_type))
-    elif value.value_type == VALUE_TYPE_ANNOTATION:
+    if isinstance(value, list):
+      for v in value:
+        self.add_encoded_value(v)
+    
+    if not isinstance(value, DexValue):
+      item = DexValue(value)
+      print(item.get_type())
+      return self.add_encoded_value(item)
+
+    elif value.get_type() == VALUE_TYPE_ARRAY:
+      for v in value.value:
+        self.add_encoded_value(v)
+    elif value.get_type() == VALUE_TYPE_ANNOTATION:
       self.get_section(SECTION_TYPE).add_item(value.value.type)
       for elem in value.value.elements:
         self.get_section(SECTION_STRING).add_item(elem[0])
-        self.add_encoded_value(elem[1].value)
-    elif value.value_type == VALUE_TYPE_STRING:
+        self.add_encoded_value(elem[1])
+    elif value.get_type() == VALUE_TYPE_STRING:
       self.get_section(SECTION_STRING).add_item(value.value)
-    elif value.value_type == VALUE_TYPE_TYPE:
+    elif value.get_type() == VALUE_TYPE_TYPE:
       self.get_section(SECTION_TYPE).add_item(value.value)
-    elif value.value_type == VALUE_TYPE_ENUM or value.value_type == VALUE_TYPE_FIELD:
+    elif value.get_type() == VALUE_TYPE_ENUM or value.get_type() == VALUE_TYPE_FIELD:
       self.get_section(SECTION_FIELD).add_item(value.value)
-    elif value.value_type == VALUE_TYPE_METHOD:
+    elif value.get_type() == VALUE_TYPE_METHOD:
       self.get_section(SECTION_METHOD).add_item(value.value)
-    elif value.value_type == VALUE_TYPE_METHOD_HANDLE:
+    elif value.get_type() == VALUE_TYPE_METHOD_HANDLE:
       self.get_section(SECTION_METHOD_HANDLE).add_item(value.value)
-    elif value.value_type == VALUE_TYPE_METHOD_TYPE:
+    elif value.get_type() == VALUE_TYPE_METHOD_TYPE:
       self.get_section(SECTION_PROTO).add_item(value.value.get_protos())
 
   def build_string_section(self, dex_pool):
@@ -262,9 +280,11 @@ class SectionManager(object):
       section.add_item(clazz)
       #if clazz.annotations:
         #self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
-      self.get_section(SECTION_ENCODED_ARRAY).add_item(clazz.values)
+      #self.get_section(SECTION_ENCODED_ARRAY).add_item(clazz.values)
       if clazz.annotations:
         self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
+      if clazz.static_initializers:
+        self.get_section(SECTION_ENCODED_ARRAY).add_item(clazz.static_initializers)
 
   def build_call_site_id_section(self, dex_pool): # pass, for reflection
     pass
@@ -696,8 +716,6 @@ class DexWriter(object):
       x.index = index
       index += 1
       writer.write_ushort(type_section.get_item_index(x.clazz.type))
-      print('{} - {}'.format(x.name, x.proto))
-      print(x.proto.parameters)
       writer.write_ushort(proto_section.get_item_index(x.proto))
       writer.write_int(string_section.get_item_index(x.name))
 
@@ -747,10 +765,14 @@ class DexWriter(object):
     encoded_array_section = self.get_section(SECTION_ENCODED_ARRAY)
     if clazz.static_initializers:
       print("static initializers are present")
-      offset = encoded_array_section.get_item(clazz.static_initializers).offset
+      offset = encoded_array_section.get_offset_by_item(clazz.static_initializers)
     else:
       offset = NO_OFFSET
     index_writer.write_int(offset)
+    print('class summary')
+    print('class type {}'.format(clazz.type))
+    print('static field length : {}'.format(len(static_fields)))
+    
 
     if not clazz_has_data: return index
 
@@ -802,9 +824,9 @@ class DexWriter(object):
     encoded_array_section = self.get_section(SECTION_ENCODED_ARRAY)
 
     for arr in encoded_array_section.get_items():
-      arr.offset = writer.position
-      encoded_array = arr.value_list
-      writer.write_uleb(len(arr.value_list))
+      encoded_array_section.set_offset_by_item(arr, writer.position)
+      encoded_array = arr
+      writer.write_uleb(len(arr))
       for val in encoded_array:
         self.write_encoded_value(writer, val)
 
@@ -934,7 +956,13 @@ class DexWriter(object):
       tmp_buffer.write_to(writer)
 
   def write_encoded_value(self, writer, val):
-    val.encode(writer)
+    if isinstance(val, list):
+      for x in val:
+        self.write_encoded_value(writer, x)
+      return
+    if not isinstance(val, DexValue):
+      val = DexValue(val)
+    val.encode(self.manager, writer)
 
   def get_magic(self, api_level):
     dex_version = 0x35
