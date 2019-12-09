@@ -34,7 +34,7 @@ def main():
   #print_dex('test_binary/classes.dex')
   #print_dex('test_binary/more_large.dex')
   #duplicate_dex('test_binary/classes.dex')
-  duplicate_dex('test_binary/large.dex')
+  duplicate_dex('test_binary/classes.dex')
 
 if __name__ == '__main__':
   main()

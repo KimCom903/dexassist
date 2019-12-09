@@ -141,9 +141,8 @@ class SectionManager(object):
 
   def add_encoded_value(self, value):
     if value.value_type == VALUE_TYPE_ARRAY:
-      for v in value.value.values:
-        
-        self.add_encoded_value(DexValue(v.value, v.type))
+      for v in value.value.value:       
+        self.add_encoded_value(DexValue(v.value, v.value_type))
     elif value.value_type == VALUE_TYPE_ANNOTATION:
       self.get_section(SECTION_TYPE).add_item(value.value.type)
       for elem in value.value.elements:

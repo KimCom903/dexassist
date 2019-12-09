@@ -225,7 +225,7 @@ def translate_encoded_value(manager, encoded_value):
       ))
     value = normalize.DexAnnotation(None, None, type_name, key_name_tuples)
 
-  if encoded_value.type == normalize.VALUE_TYPE_FIELD:
+  if encoded_value.type == normalize.VALUE_TYPE_FIELD or encoded_value.type == normalize.VALUE_TYPE_ENUM:
     parent = manager.type_list[value.class_idx]
     field_name = manager.string_list[value.name_idx]
     type_name = manager.type_list[value.type_idx]
@@ -238,14 +238,13 @@ def translate_encoded_value(manager, encoded_value):
   
   if encoded_value.type == normalize.VALUE_TYPE_ARRAY:
     values = translate_encoded_array(value)
-    return [translate_encoded_value(manager, x) for x in values]
-
+    value = normalize.DexValue([translate_encoded_value(manager, x) for x in values], encoded_value.type)
 
   return normalize.DexValue(value, encoded_value.type)
 
 def translate_encoded_array(encoded_array):
   #print(encoded_array)
-  return [x.value for x in encoded_array.values]
+  return [x for x in encoded_array.values]
 
 def code_to_editor(manager, code):
   e = editor.Editor()
