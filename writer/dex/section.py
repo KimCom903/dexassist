@@ -117,10 +117,11 @@ class ProtoSection(Section):
     self.proto_map[dex_proto] = self.index # set id
     self.index += 1
   def get_item(self, value):
+    for x in range(1000):
+      print('getitem called!')
     return list(self.proto_map.keys())[value]
   def get_items(self):
     x = list(self.proto_map.keys())
-    x.sort()
     return x
   def get_item_index(self, value):
     return self.proto_map[value]
@@ -183,7 +184,6 @@ class ClassSection(Section):
     return list(self.class_map.keys())[value]
   def get_items(self):
     x = list(self.class_map.keys())
-    x.sort()
     return x
   def get_item_index(self, value):
     return self.class_map[value]    
@@ -298,7 +298,6 @@ class ClassDataSection(Section):
     return list(self.class_data_map.keys())[value]
   def get_items(self):
     x = list(self.class_data_map.keys())
-    x.sort()
     return x
   def get_item_index(self, value):
     return self.class_data_map[value]    
