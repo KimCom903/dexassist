@@ -188,6 +188,7 @@ class DexMethod(object):
     self.parameters = self.params
     self.shorty = proto_shorty
     self.make_signature()
+    self.register_count = 0
     self.access_flags = access_flags
     self.param_annotations = []
     self.annotation_set_ref_list_offset = NO_OFFSET
@@ -258,7 +259,7 @@ class DexProto(object):
   def __hash__(self):
     return hash(self.return_type + "".join(self.parameters))
   def __eq__(self,othr):
-    if self.shorty == othr.shorty:
+    if hash(self) == hash(othr):
       return True
     return False
   def __lt__(self, other):
@@ -266,7 +267,7 @@ class DexProto(object):
   def __gt__(self, other):
     return str(self) > str(other)
   def __str__(self):
-    return self.shorty
+    return self.return_type + "".join(self.parameters)
 
 class DexAnnotation(object):
   def __init__(self, target, visibility, type_name, key_name_tuples):

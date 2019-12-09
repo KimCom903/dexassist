@@ -46,7 +46,8 @@ class Instruction(object):
   def ref_type(self):
     if len(OPCODE_TABLE[self.get_op()]) == 2: return -1
     return OPCODE_TABLE[self.get_op()][2]
-
+  def get_code_unit_count(self):
+    return int(len(self) / 2)
   def __init__(self, manager):
     self.manager = manager
   def initialize(self):

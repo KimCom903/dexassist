@@ -141,6 +141,8 @@ class DexConverter(object):
       x = self.create_dex_method(manager, item, method_name, access_flags, proto_shorty, parameter, return_type, code)
       x.annotations = method_annotation_table.get(method_idx, [])
       x.param_annotations = param_annotation_table.get(method_idx, [])
+      if m.code:
+        x.register_count = m.code.registers_size
       item.methods.append(x)
       manager.method_item_list[item.type + method_name + proto_shorty] = x
       manager.proto_item_list[return_type + "".join(parameter)] = x.create_proto()
@@ -171,6 +173,8 @@ class DexConverter(object):
       x = self.create_dex_method(manager, item, method_name, access_flags, proto_shorty, parameter, return_type, code)
       x.annotations = method_annotation_table.get(method_idx, [])
       x.param_annotations = param_annotation_table.get(method_idx, [])
+      if m.code:
+        x.register_count = m.code.registers_size
       item.methods.append(x)
       manager.method_item_list[item.type + method_name + proto_shorty] = x
       manager.proto_item_list[return_type + "".join(parameter)] = x.create_proto()

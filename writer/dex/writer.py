@@ -201,7 +201,6 @@ class SectionManager(object):
     proto_list = set()
     for clazz in dex_pool:
       for method in clazz.methods:
-        print('method_proto : {}'.format(method.proto))
         proto_list.add(method.proto)
     for proto_ in self.externel_manager.externel_proto_list:
       proto_list.add(proto_)
@@ -494,7 +493,7 @@ class DexWriter(object):
     self.num_code_item_items += 1
     code_writer.align()
     code_item_offset = code_writer.get_position()
-    code_writer.write_ushort(get_method_register_count(method)) # register
+    code_writer.write_ushort(method.register_count) # register
     is_static = method.is_static()
     code_writer.write_ushort(
       get_parameter_register_count(method.proto.parameters, is_static)
@@ -510,7 +509,7 @@ class DexWriter(object):
     code_unit_count = 0
     param_count = 0
     for ins in instructions:
-      code_unit_count += len(ins) #.get_code_unit_count()
+      code_unit_count += ins.get_code_unit_count() #.get_code_unit_count()
       if ins.ref_type == INSTRUCT_TYPE_METHOD:
         method_ref = ins.ref
         opcode = ins.get_op()
@@ -660,11 +659,9 @@ class DexWriter(object):
 
   def write_protos(self, writer):
     self.proto_section_offset = writer.position
-    print('proto_section_offset : {:08x}'.format(writer.position))
     index = 0
     for item in self.get_section(SECTION_PROTO).get_items():
       index += 1
-      print('write item : {}'.format(item))
       writer.write_int(
         self.get_section(SECTION_STRING).get_item_index(
           item.shorty
@@ -710,6 +707,8 @@ class DexWriter(object):
       x.index = index
       index += 1
       writer.write_ushort(type_section.get_item_index(x.clazz.type))
+      print('{} - {}'.format(x.name, x.proto))
+      print(x.proto.parameters)
       writer.write_ushort(proto_section.get_item_index(x.proto))
       writer.write_int(string_section.get_item_index(x.name))
 
@@ -755,10 +754,6 @@ class DexWriter(object):
     clazz_has_data = len(static_fields) > 0 or len(instance_fields) > 0 or len(direct_methods) > 0 or len(virtual_methods) > 0
     if not clazz_has_data:
       offset = NO_OFFSET
-    print('clazz.type : {} annotation_dir_offset : {} '.format(clazz.type, clazz.annotation_dir_offset))
-    print('static_fields : {} instance_fields : {} direct_methods : {} virtual_methods : {}'.format(
-      len(static_fields), len(instance_fields)
-    , len(direct_methods), len(virtual_methods)))
     index_writer.write_int(offset)
     encoded_array_section = self.get_section(SECTION_ENCODED_ARRAY)
     if clazz.static_initializers:
