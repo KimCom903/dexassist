@@ -107,7 +107,6 @@ class BaseWriteStream(object):
 
   def write_uleb(self, value):
     if value < 0:
-      #print('value is unsigned')
       raise Exception("get unsigned int : " + str(value))
     size = 1
     #print('start write uleb with value {}'.format(value))
