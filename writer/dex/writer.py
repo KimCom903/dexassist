@@ -1013,12 +1013,10 @@ class DexWriter(object):
           continue
       self.num_annotation_directory_items += 1
       clazz.annotation_dir_offset = writer.position
-      #writer.write_int(0)
       if clazz.annotations:
         writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
       else:
-        writer.write_int(0)
-
+        writer.write_int(0) 
       writer.write_int(field_annotations)
       writer.write_int(method_annotations)
       writer.write_int(param_annotations)
