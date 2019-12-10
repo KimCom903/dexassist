@@ -1,3 +1,4 @@
+import struct
 NO_OFFSET = 0
 NO_INDEX =  -1
 VALUE_TYPE_BYTE = 0x00
@@ -19,6 +20,18 @@ VALUE_TYPE_ANNOTATION = 0x1d
 VALUE_TYPE_NULL = 0x1e
 VALUE_TYPE_BOOLEAN = 0x1f
 VALUE_TYPE_AUTO = 0xff
+
+
+UINT_FMT = '<I'
+USHORT_FMT = '<H'
+INT_FMT = '<i'
+SHORT_FMT = '<h'
+LONG_FMT = '<l'
+ULONG_FMT = '<L'
+LONGLONG_FMT = '<q'
+ULONGLONG_FMT = '<Q'
+UBYTE_FMT = '<B'
+BYTE_FMT = '<b'
 
 
 ACC_PUBLIC = 0x1
@@ -131,6 +144,7 @@ class DexClassItem(object):
         ret.add(ele[0])
     for x in self.methods:
       editor = x.get_editor()
+      if editor is None: continue
       for opcode in editor.opcodes:
         if opcode.op == OP_CONST_STRING:
           ret.add(opcode.BBBB)
@@ -160,7 +174,7 @@ class DexField(object):
     self.access_flags = access_flags
   
   def is_static(self):
-    self.access_flags & 0x8
+    return self.access_flags & 0x8
 
 
   def __str__(self):
@@ -314,9 +328,9 @@ class DexValue(object):
     self.value = value
     self.value_type = value_type
   
-  def encode(self, stream):
+  def encode(self, manager, stream):
     encoded_type = self.get_type()
-    encoded_value = self.value_as_byte(encoded_type)
+    encoded_value = self.value_as_byte(manager, encoded_type)
     value_arg = len(encoded_value) - 1
     if encoded_type in [VALUE_TYPE_BYTE, VALUE_TYPE_ARRAY, VALUE_TYPE_ANNOTATION, VALUE_TYPE_NULL, VALUE_TYPE_BOOLEAN]:
       value_arg = 0
@@ -325,9 +339,10 @@ class DexValue(object):
     stream.position += len(encoded_value)
 
   def __str__(self):
-    return str(self.value) + str(self.value_type)
+    return format('type : {:04x} value : {}'.format(self.value_type, self.value))
 
-  def value_as_byte(self, type_value):
+
+  def value_as_byte(self, manager, type_value):
     if type_value == VALUE_TYPE_BYTE:
       return self.write_1(self.value)
     if type_value in [VALUE_TYPE_SHORT, VALUE_TYPE_CHAR]:
@@ -336,20 +351,29 @@ class DexValue(object):
       return self.write_4(self.value)
     if type_value in [VALUE_TYPE_DOUBLE, VALUE_TYPE_LONG]:
       return self.write_8(self.value)
-    
+    if type_value == VALUE_TYPE_BOOLEAN:
+      return self.write_1(1 if self.value else 0)
+    if type_value == VALUE_TYPE_STRING:
+      return self.write_4(manager.string_section.get_item_index(self.value))
+    if type_value == VALUE_TYPE_METHOD:
+      return self.write_4(manager.method_section.get_item_index(self.value))
+    if type_value == VALUE_TYPE_TYPE:
+      return self.write_4(manager.type_section.get_item_index(self.value))
+    if type_value == VALUE_TYPE_NULL:
+      return bytes()
+    raise Exception('0x{:04x} is not implemented'.format(self.value_type))
     
     # need struct.pack()
-    
-    return bytes([0x00])
-
   def write_1(self, value):
-    return bytes([value & 0xff])
+    return struct.pack(UBYTE_FMT, value)
   def write_2(self, value):
-    return bytes([value << 8 & 0xff, value & 0xff])
+    return struct.pack(USHORT_FMT, value)
   def write_4(self, value):
-    return bytes([value << 24 & 0xff, value << 16 & 0xff, value << 8 & 0xff, value & 0xff])
+    return struct.pack(UINT_FMT, value)
+
   def write_8(self, value):
-    return bytes([value << 56 & 0xff, value << 48 & 0xff, value << 40 & 0xff, value << 32 & 0xff, value << 24 & 0xff, value << 16 & 0xff, value << 8 & 0xff, value & 0xff])
+    return struct.pack(ULONG_FMT, value)
+
   def get_type(self):
     if self.value_type == VALUE_TYPE_AUTO:
       return self.get_inferenced_type()

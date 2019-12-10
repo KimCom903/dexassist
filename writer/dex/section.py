@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from normalize import DexProto
+from normalize import DexProto, DexValue, VALUE_TYPE_ARRAY
 SECTION_STRING = 1
 SECTION_TYPE = 2
 SECTION_PROTO = 3
@@ -110,7 +110,6 @@ class ProtoSection(Section):
   def add_item(self, dex_proto):
     if self.frozen:
       raise Exception('section is frozen')
-    print('proto : {}'.format(dex_proto))
   
     if dex_proto in self.proto_map: return
 
@@ -227,7 +226,6 @@ class TypeListSection(Section):
     if len(item) == 0: return 0
     key = TypeListItem(item)
 
-    print('get offset : {}, return {}'.format(item, self.offset_map[key]))
     return self.offset_map[key]
   def get_item(self, value):
     value = TypeListItem(value)
@@ -308,23 +306,37 @@ class MapSection(Section):
 class EncodedArraySection(Section):
   def __init__(self, section_manager):
     self.encoded_array_map = OrderedDict()
+    self.offset_map = dict()
     self.section_ = section_manager
     self.index = 0
     self.frozen = False
   def add_item(self, value):
     if self.frozen:
       raise Exception('section is frozen')
-    self.encoded_array_map[value] = value # set id
+    key = self.hash(value)
+    if key in self.encoded_array_map: return
+    self.encoded_array_map[key] = value # set id
     self.index += 1
-    for value in value.value_list:
-      self.section_.add_encoded_value(value)
+    for v in value:
+      self.section_.add_encoded_value(v)
 
   def hash(self, item):
     return ''.join(str(x) for x in item)
 
+  def get_item(self, value):
+    print(value)
+    return self.encoded_array_map[self.hash(value)]
+
   def get_items(self):
     return list(self.encoded_array_map.values())
   
+  def set_offset_by_item(self, item, offset):
+    key = self.hash(item)
+    self.offset_map[key] = offset
+
+  def get_offset_by_item(self, item):
+    key = self.hash(item)
+    return self.offset_map[key]
 class AnnotationSection(Section):
   def __init__(self, section_manager):
     self.annotation_map = OrderedDict()
@@ -340,9 +352,11 @@ class AnnotationSection(Section):
     self.get_section(SECTION_TYPE).add_item(dex_annotation.type)
     for elem in dex_annotation.elements:
       self.get_section(SECTION_STRING).add_item(elem[0])
-      print('add elem')
-      print(elem[1])
-      self.add_encoded_value(elem[1])
+      x = elem[1]
+      if not isinstance(x, DexValue):
+        x = DexValue(x, value_type=VALUE_TYPE_ARRAY)
+      
+      self.add_encoded_value(x)
     self.index += 1 
   def get_items(self):
     ret = [x for x in self.annotation_map]
@@ -362,7 +376,12 @@ class AnnotationSetSection(Section):
     self.annotation_set_map[self.index] = value # set id
     self.index += 1
     for x in value:
-      self.get_section(SECTION_ANNOTATION).add_item(x)
+      if x:
+        if isinstance(x, list):
+          for _x in x:
+            self.get_section(SECTION_ANNOTATION).add_item(_x)
+        else:
+          self.get_section(SECTION_ANNOTATION).add_item(x)
   def get_items(self):
     return self.annotation_set_map
     #return list(self.annotation_set_map.values())
