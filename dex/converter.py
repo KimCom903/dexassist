@@ -285,10 +285,10 @@ class CodeStream(object):
     self.index = offset
 
 class CodeItemReader(object):
-  def __init__(self, editor, manager, code_item):
+  def __init__(self, editor_, manager, code_item):
     self.tries = []
     self.opcodes = []
-    self.editor = editor
+    self.editor = editor_
     self.manager = manager
     payload_size = 0
     stream = CodeStream(code_item.insns)
@@ -326,7 +326,6 @@ class CodeItemReader(object):
             type_idx, addr = type_addr_pair.type_idx, type_addr_pair.addr
             type_addrs.append((self.manager.type_list[type_idx], addr))
           catch_all_addr = handler.catch_all_addr
-
 
         trycatch = editor.TryCatch(self.editor, t.start_addr, t.start_addr + t.insn_count - 1, type_addrs, catch_all_addr)
         self.editor.tries.append(trycatch)

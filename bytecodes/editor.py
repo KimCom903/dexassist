@@ -84,7 +84,7 @@ class Editor(object):
     for x in self.opcodes:
       if x.unique_key == opcode.unique_key:
         return i
-      i += 1
+      i += len(x)
     return -1
 
 
@@ -111,6 +111,17 @@ class TryCatch(object):
     start_offset = self.editor.get_opcode_offset(self.start)
     end_offset = self.editor.get_opcode_offset(self.end)
     return offset >= start_offset and offset <= end_offset
+
+  def get_exception_handlers(self):
+    return self.catch_handlers
+
+  def get_start_addr(self): ##offset item set needed
+    pass
+
+  def get_code_count(self):
+    pass
+
+  
 
 """
 virtual opcode class.

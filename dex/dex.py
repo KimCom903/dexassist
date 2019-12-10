@@ -708,7 +708,6 @@ class EncodedCatchHandler(DexItem):
   descriptor = {
     'size': SLEB
   }
-
   def parse_remain(self):
     self.handlers = []
     self.catch_all_addr = -1

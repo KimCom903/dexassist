@@ -419,7 +419,10 @@ class DexValue(object):
     if type_value == VALUE_TYPE_NULL:
       return bytes()
     if type_value == VALUE_TYPE_ARRAY:
-      return bytes() # process with encode
+      ret = bytearray()
+      for item in self.value:
+        ret += item.value_as_byte(manager, item.value_type)
+      return ret
     if type_value == VALUE_TYPE_ANNOTATION:
       return bytes() # process with encode
       

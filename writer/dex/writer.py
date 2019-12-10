@@ -613,8 +613,8 @@ class DexWriter(object):
       
       ehbuf.write_sleb128(eh_size)
       for eh in try_block.get_exception_handlers():
-        exception_type = eh.get_exception_type()
-        code_addr = eh.get_handler_addr()
+        exception_type = eh.get_exception_type() ## need define handler_class, now, handler is tuple, there is no function
+        code_addr = eh.get_handler_addr() 
         if exception_type is not None:
           # regular
           ehbuf.write_uleb(self.get_section(SECTION_TYPE).get_item_index(exception_type))
@@ -1013,13 +1013,12 @@ class DexWriter(object):
           continue
       self.num_annotation_directory_items += 1
       clazz.annotation_dir_offset = writer.position
-
       #writer.write_int(0)
       if clazz.annotations:
         writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
       else:
         writer.write_int(0)
-        
+
       writer.write_int(field_annotations)
       writer.write_int(method_annotations)
       writer.write_int(param_annotations)

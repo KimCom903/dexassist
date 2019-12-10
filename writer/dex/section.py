@@ -132,10 +132,8 @@ class ProtoSection(Section):
 
     self.proto_map[dex_proto] = self.index # set id
     self.index += 1
-    
   def get_item(self, value):
     return self.reverse_proto_map[value]
-
   def get_items(self):
     x = list(self.proto_map.keys())
     return x
@@ -218,6 +216,7 @@ class ClassSection(Section):
 
   def get_items(self):
     x = list(self.class_map.keys())
+    x.sort()
     return x
   def get_item_index(self, value):
     return self.class_map[value]    
