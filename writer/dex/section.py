@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from normalize import DexProto
+from normalize import DexProto, DexValue, VALUE_TYPE_ARRAY
 SECTION_STRING = 1
 SECTION_TYPE = 2
 SECTION_PROTO = 3
@@ -59,24 +59,36 @@ class Section(object):
 class StringSection(Section):
   def __init__(self, section_):
     self.string_map = OrderedDict()
+    self.tmp_list = set()
     self.index = 0
     self.section_ = section_
     self.frozen = False
+    self.string_reverse_map = {}
   def add_item(self, value):
     # decode mutf8
     if self.frozen:
       raise Exception('section is frozen')
-    if value in self.string_map: return self.string_map[value]
+    #if value in self.string_map: return self.string_map[value]
+    self.tmp_list.add(value)
 
-    self.string_map[value] = self.index # set id
-    self.index += 1
+    #self.string_map[value] = self.index # set id
+    #self.index += 1
   def get_item(self, value):
-    return list(self.string_map.keys())[value]
+    return self.string_reverse_map[value]
   def get_items(self):
     return list(self.string_map.keys())
   def get_item_index(self, value):
     return self.string_map[value]    
-     
+  def freeze(self):
+    x = list(self.tmp_list)
+
+    x.sort()
+    for item in x:
+      self.string_map[item] = self.index
+      self.string_reverse_map[self.index] = item
+      self.index += 1
+    
+    self.frozen = True
 class TypeSection(Section):
   def __init__(self, section_manager):
     self.type_map = OrderedDict()
@@ -84,6 +96,7 @@ class TypeSection(Section):
     self.section_ = section_manager
     self.offset = 0
     self.frozen = False
+    self.type_reverse_map = {}
   def add_item(self, dex_type):
     if self.frozen:
       raise Exception('section is frozen')
@@ -91,13 +104,15 @@ class TypeSection(Section):
     if dex_type in self.type_map: return self.type_map[dex_type]
 
     self.type_map[dex_type] = self.index # set id
+    self.type_reverse_map[self.index] = dex_type
     self.index += 1
   def get_item(self, value):
-    return list(self.type_map.keys())[value]
+    return self.type_reverse_map[value]
+
   def get_items(self):
     return list(self.type_map.keys())
   def get_item_index(self, value):
-    return self.type_map[value]    
+    return self.type_map[value]
 
 class ProtoSection(Section):
   def __init__(self, section_manager):
@@ -105,6 +120,7 @@ class ProtoSection(Section):
     self.index = 0
     self.section_ = section_manager
     self.frozen = False
+    self.reverse_proto_map = {}
   def add_interfaces(self, interfaces):
     self.add_item(DexProto(''.join(interfaces), None, None))
   def add_item(self, dex_proto):
@@ -112,11 +128,12 @@ class ProtoSection(Section):
       raise Exception('section is frozen')
   
     if dex_proto in self.proto_map: return
+    self.reverse_proto_map[self.index] = dex_proto
 
     self.proto_map[dex_proto] = self.index # set id
     self.index += 1
   def get_item(self, value):
-    return list(self.proto_map.keys())[value]
+    return self.reverse_proto_map[value]
   def get_items(self):
     x = list(self.proto_map.keys())
     return x
@@ -129,6 +146,7 @@ class FieldSection(Section):
     self.index = 0
     self.section_ = section_manager
     self.frozen = False
+    self.reverse_field_map = {}
   def add_item(self, dex_field):
     if self.frozen:
       raise Exception('section is frozen')
@@ -136,9 +154,10 @@ class FieldSection(Section):
     if dex_field in self.field_map: 
       return
     self.field_map[dex_field] = self.index # set id
+    self.reverse_field_map[self.index] = dex_field
     self.index += 1
   def get_item(self, value):
-    return list(self.field_map.keys())[value]
+    return self.reverse_field_map[value]
   def get_items(self):
     return list(self.field_map.keys())
   def get_item_index(self, value):
@@ -149,6 +168,7 @@ class MethodSection(Section):
     self.method_map = OrderedDict()
     self.index = 0
     self.section_ = section_manager
+    self.reverse_method_map = {}
     self.frozen = False
   def add_item(self, dex_method):
     if self.frozen:
@@ -156,11 +176,11 @@ class MethodSection(Section):
     if dex_method in self.method_map:
       return
     self.method_map[dex_method] = self.index # set id
+    self.reverse_method_map[self.index] = dex_method
     self.index += 1
   def get_item(self, value):
-    for object_item, idx in self.method_map.items():
-      if idx == value:
-        return object_item
+    return self.reverse_method_map[value]
+
   def get_item_index(self, value):
     return self.method_map[value]  
   def get_items(self):
@@ -169,6 +189,7 @@ class MethodSection(Section):
 class ClassSection(Section):
   def __init__(self, section_manager):
     self.class_map = OrderedDict()
+    self.reverse_class_map = {}
     self.index = 0
     self.section_ = section_manager
     self.frozen = False
@@ -176,9 +197,11 @@ class ClassSection(Section):
     if self.frozen:
       raise Exception('section is frozen')
     self.class_map[dex_class] = self.index # set id
+    self.reverse_class_map[self.index] = dex_class
     self.index += 1
   def get_item(self, value):
-    return list(self.class_map.keys())[value]
+    return self.reverse_class_map[value]
+
   def get_items(self):
     x = list(self.class_map.keys())
     x.sort()
@@ -262,6 +285,7 @@ class DebugSection(Section):
 class CodeSection(Section):
   def __init__(self, section_manager):
     self.code_map = OrderedDict()
+    self.reverse_code_map = {}
     self.index = 0
     self.section_ = section_manager
     self.frozen = False
@@ -269,9 +293,11 @@ class CodeSection(Section):
     if self.frozen:
       raise Exception('section is frozen')
     self.code_map[value] = self.index # set id
+    self.reverse_code_map[self.index] = value
     self.index += 1
   def get_item(self, value):
-    return list(self.code_map.keys())[value]
+    return self.reverse_code_map[value]
+
   def get_items(self):
     return list(self.code_map.keys())
   def get_item_index(self, value):
@@ -283,6 +309,7 @@ class ClassDataSection(Section):
     self.index = 0
     self.section_ = section_manager
     self.frozen = False
+    self.reverse_class_map = {}
   def freeze(self):
     self.frozen = True
 
@@ -290,9 +317,11 @@ class ClassDataSection(Section):
     if self.frozen:
       raise Exception('section is frozen')
     self.class_data_map[value] = self.index # set id
+    self.reverse_class_map[self.index] = value
     self.index += 1
   def get_item(self, value):
-    return list(self.class_data_map.keys())[value]
+    return self.reverse_class_map[value]
+
   def get_items(self):
     x = list(self.class_data_map.keys())
     return x
@@ -305,27 +334,43 @@ class MapSection(Section):
 class EncodedArraySection(Section):
   def __init__(self, section_manager):
     self.encoded_array_map = OrderedDict()
+    self.offset_map = dict()
     self.section_ = section_manager
     self.index = 0
     self.frozen = False
   def add_item(self, value):
     if self.frozen:
       raise Exception('section is frozen')
-    self.encoded_array_map[value] = value # set id
+    key = self.hash(value)
+    if key in self.encoded_array_map: return
+    self.encoded_array_map[key] = value # set id
     self.index += 1
-    for value in value.value_list:
-      self.section_.add_encoded_value(value)
+    for v in value:
+      if isinstance(v, list):
+        self.add_item(v)
+        continue
+      if isinstance(v, DexValue) and v.get_type() == VALUE_TYPE_ARRAY:
+        self.add_item(v)
+        continue
+
+      self.section_.add_encoded_value(v)
 
   def hash(self, item):
-    return ''.join(str(x) for x in item)
+    return '|'.join(str(x) for x in item)
 
   def get_item(self, value):
-    print(value)
-    return self.encoded_array_map[value]
+    return self.encoded_array_map[self.hash(value)]
 
   def get_items(self):
     return list(self.encoded_array_map.values())
   
+  def set_offset_by_item(self, item, offset):
+    key = self.hash(item)
+    self.offset_map[key] = offset
+
+  def get_offset_by_item(self, item):
+    key = self.hash(item)
+    return self.offset_map[key]
 class AnnotationSection(Section):
   def __init__(self, section_manager):
     self.annotation_map = OrderedDict()
@@ -335,16 +380,15 @@ class AnnotationSection(Section):
   def add_item(self, dex_annotation):
     if self.frozen:
       raise Exception('section is frozen')
-    print(dex_annotation)
     if dex_annotation in self.annotation_map: return
     self.annotation_map[dex_annotation] = self.index # set id
     self.get_section(SECTION_TYPE).add_item(dex_annotation.type)
     for elem in dex_annotation.elements:
       self.get_section(SECTION_STRING).add_item(elem[0])
-      print('add elem')
-      print(elem[1])
-      self.add_encoded_value(elem[1])
+      x = elem[1]
+      self.add_encoded_value(x)
     self.index += 1 
+
   def get_items(self):
     ret = [x for x in self.annotation_map]
 
@@ -356,12 +400,18 @@ class AnnotationSetSection(Section):
     self.index = 0
     self.section_ = section_manager
     self.annotation_offset_map = dict()
+    self.reverse_annotation_set_map = dict()
     self.frozen = False
   def add_item(self, value):
     if self.frozen:
       raise Exception('section is frozen')
-    self.annotation_set_map[self.index] = value # set id
+    key = self.hash(value)
+    if key in self.annotation_set_map: return
+    self.annotation_set_map[key] = self.index # set id
+    self.reverse_annotation_set_map[self.index] = value
     self.index += 1
+    if value is None:
+      return
     for x in value:
       if x:
         if isinstance(x, list):
@@ -369,15 +419,40 @@ class AnnotationSetSection(Section):
             self.get_section(SECTION_ANNOTATION).add_item(_x)
         else:
           self.get_section(SECTION_ANNOTATION).add_item(x)
+
+  def get_dex_value_hash(self, val):
+    ret = ''
+    if isinstance(val, list):
+      for i in val:
+        ret += self.get_dex_value_hash(i)
+      return ret
+    else:
+      return str(val)
+
+  def hash(self, item):
+    key = ''
+    if item is None: return 'None'
+    for x in item:
+      key += x.type_name
+      for elem in x.elements:
+        key += elem[0] + ',' + self.get_dex_value_hash(elem[1])
+        
+   
+    return key
+
+
   def get_items(self):
-    return self.annotation_set_map
+    return self.reverse_annotation_set_map
     #return list(self.annotation_set_map.values())
   def get_item_by_index(self, index):
-    return self.annotation_set_map[index]
+    return self.reverse_annotation_set_map[index]
   def set_offset_by_index(self, index, offset):
     self.annotation_offset_map[index] = offset
   def get_index_by_item(self, item):
-    return 1
+    key = self.hash(item)
+    return self.annotation_set_map[key]
+
   def get_offset_by_item(self, item):
     index = self.get_index_by_item(item)
+    print('annotation index : {}'.format(index))
     return self.annotation_offset_map[index]

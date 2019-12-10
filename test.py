@@ -22,7 +22,6 @@ def duplicate_dex(dex_path):
   stream = dex.StreamReader(x, manager)
   header = dex.HeaderItem(manager, stream, 0)
   mdex = converter.DexConverter().get_dex(header, manager)
-  print(dir(writer_dex))
   buf = bytearray()
   stream = OutputStream(buf,0)
   #mdex.write(stream)

@@ -1,3 +1,4 @@
+import struct
 NO_OFFSET = 0
 NO_INDEX =  -1
 VALUE_TYPE_BYTE = 0x00
@@ -19,6 +20,18 @@ VALUE_TYPE_ANNOTATION = 0x1d
 VALUE_TYPE_NULL = 0x1e
 VALUE_TYPE_BOOLEAN = 0x1f
 VALUE_TYPE_AUTO = 0xff
+
+
+UINT_FMT = '<I'
+USHORT_FMT = '<H'
+INT_FMT = '<i'
+SHORT_FMT = '<h'
+LONG_FMT = '<l'
+ULONG_FMT = '<L'
+LONGLONG_FMT = '<q'
+ULONGLONG_FMT = '<Q'
+UBYTE_FMT = '<B'
+BYTE_FMT = '<b'
 
 
 ACC_PUBLIC = 0x1
@@ -51,7 +64,9 @@ class Dex(object):
 
   def add_class(self, clazz):
     self.classes.append(clazz)
-
+  def get_class(self, clazz_type):
+    for clazz in self.classes:
+      if clazz.type == clazz_type: return clazz
 class DexClassItem(object):
   def __init__(self):
     self.index = NO_INDEX
@@ -132,6 +147,8 @@ class DexClassItem(object):
     for x in self.methods:
       editor = x.get_editor()
       if editor is None: continue
+
+
       for opcode in editor.opcodes:
         if opcode.op == OP_CONST_STRING:
           ret.add(opcode.BBBB)
@@ -139,6 +156,12 @@ class DexClassItem(object):
         ret.add(ann.type)
         for ele in ann.elements:
           ret.add(ele[0])
+      for ann_list in x.param_annotations:
+        if ann_list:
+          for ann in ann_list:
+            ret.add(ann.type)
+            for ele in ann.elements:
+              ret.add(ele[0])
       ret.add(x.shorty)
       ret.add(x.name)
       ret.add(x.return_type)
@@ -161,7 +184,7 @@ class DexField(object):
     self.access_flags = access_flags
   
   def is_static(self):
-    self.access_flags & 0x8
+    return self.access_flags & 0x8
 
 
   def __str__(self):
@@ -173,7 +196,11 @@ class DexField(object):
       ret += ''.join(a)
     return ret
   def __hash__(self):
-    return hash(self.name + self.clazz.name)
+    try:
+      return hash(self.name + self.clazz.name)
+    except:
+      # for external field:
+      return hash(str(self.name + self.clazz))
   def __eq__(self,othr):
     if(hash(othr) == hash(self)):
       return True
@@ -294,7 +321,8 @@ class DexAnnotation(object):
     
   def __str__(self):
     return '{}({})'.format(self.type_name, self.elements)
-
+  def __hash__(self):
+    return hash(str(self))
 
 class DexArray(object):
   def __init__(self):
@@ -315,20 +343,46 @@ class DexValue(object):
     self.value = value
     self.value_type = value_type
   
-  def encode(self, stream):
+  def encode(self, manager, stream):
     encoded_type = self.get_type()
-    encoded_value = self.value_as_byte(encoded_type)
+    encoded_value = self.value_as_byte(manager, encoded_type, stream)
     value_arg = len(encoded_value) - 1
-    if encoded_type in [VALUE_TYPE_BYTE, VALUE_TYPE_ARRAY, VALUE_TYPE_ANNOTATION, VALUE_TYPE_NULL, VALUE_TYPE_BOOLEAN]:
+    if encoded_type in [VALUE_TYPE_BYTE, VALUE_TYPE_ARRAY, VALUE_TYPE_ANNOTATION, VALUE_TYPE_NULL]:
       value_arg = 0
+    if encoded_type == VALUE_TYPE_BOOLEAN:
+      value_arg = 1 if self.value else 0
+
     stream.write_ubyte((((value_arg & 0xffffffff) << 5) | encoded_type))
+    if encoded_type in [VALUE_TYPE_BOOLEAN, VALUE_TYPE_NULL]: return
+
+    if encoded_type == VALUE_TYPE_ARRAY:
+      print('array length : {}'.format(len(self.value)))
+      stream.write_uleb(len(self.value))
+      for x in self.value:
+        x.encode(manager, stream)
+      return
+
+    if encoded_type == VALUE_TYPE_ANNOTATION:
+      raise Exception('do not write annotation in encode')
+
+      stream.write_uleb(manager.type_section.get_item_index(self.value.type))
+      stream.write_uleb(len(self.value.elements))
+      for elem in self.value.elements:
+        name = elem[0]
+        val = elem[1]
+        stream.write_uleb(manager.string_section.get_item_index(name))
+        val.encode(manager, stream)
+      return
+
     stream.write_byte_array(encoded_value)
-    stream.position += len(encoded_value)
+    #stream.position += len(encoded_value)
 
   def __str__(self):
-    return str(self.value) + str(self.value_type)
+    return format('type : {:04x} value : {}'.format(self.value_type, self.value))
 
-  def value_as_byte(self, type_value):
+  
+  def value_as_byte(self, manager, type_value, stream):
+
     if type_value == VALUE_TYPE_BYTE:
       return self.write_1(self.value)
     if type_value in [VALUE_TYPE_SHORT, VALUE_TYPE_CHAR]:
@@ -337,20 +391,35 @@ class DexValue(object):
       return self.write_4(self.value)
     if type_value in [VALUE_TYPE_DOUBLE, VALUE_TYPE_LONG]:
       return self.write_8(self.value)
-    
+    if type_value == VALUE_TYPE_STRING:
+      return self.write_4(manager.string_section.get_item_index(self.value))
+    if type_value == VALUE_TYPE_METHOD:
+      return self.write_4(manager.method_section.get_item_index(self.value))
+    if type_value == VALUE_TYPE_TYPE:
+      return self.write_4(manager.type_section.get_item_index(self.value))
+
+    if type_value == VALUE_TYPE_BOOLEAN:
+      return bytes()
+    if type_value == VALUE_TYPE_NULL:
+      return bytes()
+    if type_value == VALUE_TYPE_ARRAY:
+      return bytes() # process with encode
+    if type_value == VALUE_TYPE_ANNOTATION:
+      return bytes() # process with encode
+      
+    raise Exception('0x{:04x} is not implemented'.format(type_value))
     
     # need struct.pack()
-    
-    return bytes([0x00])
-
   def write_1(self, value):
-    return bytes([value & 0xff])
+    return struct.pack(UBYTE_FMT, value)
   def write_2(self, value):
-    return bytes([value << 8 & 0xff, value & 0xff])
+    return struct.pack(USHORT_FMT, value)
   def write_4(self, value):
-    return bytes([value << 24 & 0xff, value << 16 & 0xff, value << 8 & 0xff, value & 0xff])
+    return struct.pack(UINT_FMT, value)
+
   def write_8(self, value):
-    return bytes([value << 56 & 0xff, value << 48 & 0xff, value << 40 & 0xff, value << 32 & 0xff, value << 24 & 0xff, value << 16 & 0xff, value << 8 & 0xff, value & 0xff])
+    return struct.pack(ULONG_FMT, value)
+
   def get_type(self):
     if self.value_type == VALUE_TYPE_AUTO:
       return self.get_inferenced_type()
@@ -384,7 +453,7 @@ class DexValue(object):
       return VALUE_TYPE_FIELD
     if isinstance(self.value, DexAnnotation):
       return VALUE_TYPE_ANNOTATION
-    
+    raise Exception('not treated value : {}'.format(self.value))
   def get_encoded_array_offset(self):
     return self.encoded_array_offset
   

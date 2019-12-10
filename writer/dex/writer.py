@@ -11,7 +11,7 @@ from writer.dex.util import InstructionUtil
 from writer.dex.stream import OutputStream
 from writer.dex.stream import TempOutputStream
 from writer.dex.stream import InstructionWriter
-from normalize import DexValue
+from normalize import DexValue, DexMethod, DexField
 NO_INDEX = -1
 NO_OFFSET = 0
 
@@ -118,8 +118,17 @@ def get_parameter_register_count(parameters, is_static):
 
 class SectionManager(object):
   @property
+  def type_section(self):
+    return self.get_section(SECTION_TYPE)
+  @property
+  def field_section(self):
+    return self.get_section(SECTION_FIELD)
+  @property
   def method_section(self):
     return self.get_section(SECTION_METHOD)
+  @property
+  def string_section(self):
+    return self.get_section(SECTION_STRING)
   def __init__(self, manager):
     self.section_map = {
       SECTION_STRING: StringSection(self),
@@ -140,26 +149,37 @@ class SectionManager(object):
     return self.section_map[key]
 
   def add_encoded_value(self, value):
-    if value.value_type == VALUE_TYPE_ARRAY:
-      for v in value.value.values:
-        
-        self.add_encoded_value(DexValue(v.value, v.type))
-    elif value.value_type == VALUE_TYPE_ANNOTATION:
+    if isinstance(value, list):
+      for v in value:
+        self.add_encoded_value(v)
+    
+    if not isinstance(value, DexValue):
+      item = DexValue(value)
+      return self.add_encoded_value(item)
+
+    elif value.get_type() == VALUE_TYPE_ARRAY:
+      for v in value.value:
+        self.add_encoded_value(v)
+    elif value.get_type() == VALUE_TYPE_ANNOTATION:
       self.get_section(SECTION_TYPE).add_item(value.value.type)
       for elem in value.value.elements:
         self.get_section(SECTION_STRING).add_item(elem[0])
-        self.add_encoded_value(elem[1].value)
-    elif value.value_type == VALUE_TYPE_STRING:
+        self.add_encoded_value(elem[1])
+    elif value.get_type() == VALUE_TYPE_STRING:
       self.get_section(SECTION_STRING).add_item(value.value)
-    elif value.value_type == VALUE_TYPE_TYPE:
+    elif value.get_type() == VALUE_TYPE_TYPE:
       self.get_section(SECTION_TYPE).add_item(value.value)
-    elif value.value_type == VALUE_TYPE_ENUM or value.value_type == VALUE_TYPE_FIELD:
+    elif value.get_type() == VALUE_TYPE_ENUM or value.get_type() == VALUE_TYPE_FIELD:
+      print('add value : {}'.format(value.value))
       self.get_section(SECTION_FIELD).add_item(value.value)
-    elif value.value_type == VALUE_TYPE_METHOD:
+      self.get_section(SECTION_TYPE).add_item(value.value.type)
+      self.get_section(SECTION_TYPE).add_item(value.value.clazz) # for external field
+    elif value.get_type() == VALUE_TYPE_METHOD:
       self.get_section(SECTION_METHOD).add_item(value.value)
-    elif value.value_type == VALUE_TYPE_METHOD_HANDLE:
+    elif value.get_type() == VALUE_TYPE_METHOD_HANDLE:
+      raise Exception("Method Handle is not supported")
       self.get_section(SECTION_METHOD_HANDLE).add_item(value.value)
-    elif value.value_type == VALUE_TYPE_METHOD_TYPE:
+    elif value.get_type() == VALUE_TYPE_METHOD_TYPE:
       self.get_section(SECTION_PROTO).add_item(value.value.get_protos())
 
   def build_string_section(self, dex_pool):
@@ -179,14 +199,29 @@ class SectionManager(object):
     section = self.get_section(SECTION_TYPE)
     type_list = set()
     for clazz in dex_pool:
+      print('class type : {}'.format(clazz.type))
       type_list.add(clazz.type)
       type_list.update(clazz.interfaces)
+      
       for field in clazz.fields:
         type_list.add(field.type)
+        for ann in field.annotations:
+          type_list.add(ann.type)
+
       for method in clazz.methods:
         type_list.add(method.return_type)
         for parameter in method.params:
           type_list.add(parameter)
+        for ann in method.annotations:
+          type_list.add(ann.type)
+        if method.param_annotations:
+          for ann_list in method.param_annotations:
+            if ann_list:
+              for ann in ann_list:
+                type_list.add(ann.type)
+      for ann in clazz.annotations:
+        type_list.add(ann.type)
+
     for type_ in self.externel_manager.externel_type_list:
       type_list.add(type_)
     x = list(type_list)
@@ -196,17 +231,22 @@ class SectionManager(object):
 
   def build_proto_section(self, dex_pool):
     section = self.get_section(SECTION_PROTO)
+    string_section = self.get_section(SECTION_STRING)
     proto_list = set()
     for clazz in dex_pool:
       for method in clazz.methods:
         proto_list.add(method.proto)
     for proto_ in self.externel_manager.externel_proto_list:
       proto_list.add(proto_)
+      
     
     x = list(proto_list)
     for protos in x:
       section.add_item(protos)
-
+      string_section.add_item(protos.shorty)
+      string_section.add_item(protos.return_type)
+      for param in protos.parameters:
+        string_section.add_item(param)
   def build_field_section(self, dex_pool):
     section = self.get_section(SECTION_FIELD)
     field_list = set()
@@ -239,7 +279,8 @@ class SectionManager(object):
       if method.annotations:
         self.get_section(SECTION_ANNOTATION_SET).add_item(method.annotations)
       if method.param_annotations:
-          self.get_section(SECTION_ANNOTATION_SET).add_item(method.param_annotations)
+        for ann in method.param_annotations:
+          self.get_section(SECTION_ANNOTATION_SET).add_item(ann)
 
 
   def get_data_section_offset(self):
@@ -263,9 +304,11 @@ class SectionManager(object):
       section.add_item(clazz)
       #if clazz.annotations:
         #self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
-      self.get_section(SECTION_ENCODED_ARRAY).add_item(clazz.values)
+      #self.get_section(SECTION_ENCODED_ARRAY).add_item(clazz.values)
       if clazz.annotations:
         self.get_section(SECTION_ANNOTATION_SET).add_item(clazz.annotations)
+      if clazz.static_initializers:
+        self.get_section(SECTION_ENCODED_ARRAY).add_item(clazz.static_initializers)
 
   def build_call_site_id_section(self, dex_pool): # pass, for reflection
     pass
@@ -746,10 +789,14 @@ class DexWriter(object):
     encoded_array_section = self.get_section(SECTION_ENCODED_ARRAY)
     if clazz.static_initializers:
       print("static initializers are present")
-      offset = encoded_array_section.get_item(clazz.static_initializers).offset
+      offset = encoded_array_section.get_offset_by_item(clazz.static_initializers)
     else:
       offset = NO_OFFSET
     index_writer.write_int(offset)
+    print('class summary')
+    print('class type {}'.format(clazz.type))
+    print('static field length : {}'.format(len(static_fields)))
+    
 
     if not clazz_has_data: return index
 
@@ -801,9 +848,9 @@ class DexWriter(object):
     encoded_array_section = self.get_section(SECTION_ENCODED_ARRAY)
 
     for arr in encoded_array_section.get_items():
-      arr.offset = writer.position
-      encoded_array = arr.value_list
-      writer.write_uleb(len(arr.value_list))
+      encoded_array_section.set_offset_by_item(arr, writer.position)
+      encoded_array = arr
+      writer.write_uleb(len(arr))
       for val in encoded_array:
         self.write_encoded_value(writer, val)
 
@@ -814,15 +861,25 @@ class DexWriter(object):
     annotation_section = self.get_section(SECTION_ANNOTATION)
     type_section = self.get_section(SECTION_TYPE)
     string_section = self.get_section(SECTION_STRING)
+    
     for ann in annotation_section.get_items():
       ann.offset = writer.position
       writer.write_ubyte(ann.visibility)
       writer.write_uleb(type_section.get_item_index(ann.type))
       elems = ann.elements
       writer.write_uleb(len(elems))
+      print('annotation type : {}'.format(ann.type))
+      print('elements size : {}'.format(len(elems)))
       for elem in elems:
-        writer.write_uleb(string_section.get_item_index(elem[0]))
-        self.write_encoded_value(writer, elem[1])    
+        name_idx = string_section.get_item_index(elem[0])
+        if isinstance(elem[1], list):
+          print(' {} - {}'.format(elem[0], [str(x) for x in elem[1]]))
+
+        else:
+          print(' {} - {}'.format(elem[0], elem[1]))
+
+        writer.write_uleb(name_idx)
+        self.write_encoded_value(writer, elem[1])
 
 
   def write_annotation_sets(self, writer):
@@ -831,9 +888,11 @@ class DexWriter(object):
     if self.should_create_empty_annotation_set(): writer.write_int(0)
 
     annotation_set_section = self.get_section(SECTION_ANNOTATION_SET)
+    print(annotation_set_section.reverse_annotation_set_map)
     for index in annotation_set_section.get_items():
-      
       annotations = annotation_set_section.get_item_by_index(index)
+      print('process annotation : {}'.format([str(x) for x in annotations]))
+
       writer.align()
       annotation_set_section.set_offset_by_index(index, writer.position)
       writer.write_int(len(annotations))
@@ -925,15 +984,21 @@ class DexWriter(object):
           continue
       self.num_annotation_directory_items += 1
       clazz.annotation_dir_offset = writer.position
-      writer.write_int(0)
-      ##writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
+      #writer.write_int(0)
+      writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
       writer.write_int(field_annotations)
       writer.write_int(method_annotations)
       writer.write_int(param_annotations)
       tmp_buffer.write_to(writer)
 
   def write_encoded_value(self, writer, val):
-    val.encode(writer)
+    #if isinstance(val, list):
+    #  for x in val:
+    #    self.write_encoded_value(writer, x)
+    #  return
+    if not isinstance(val, DexValue):
+      val = DexValue(val)
+    val.encode(self.manager, writer)
 
   def get_magic(self, api_level):
     dex_version = 0x35

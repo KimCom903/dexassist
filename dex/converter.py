@@ -10,24 +10,19 @@ except:
 
 class DexConverter(object):
   def get_dex(self, header, manager):
-    dex = normalize.Dex(manager)
+    self.dex = normalize.Dex(manager)
     for x in manager.class_def_list:
-      dex.add_class(self.create_dex_class(x, manager))
-    for clazz in dex.classes:
+      self.dex.add_class(self.create_dex_class(x, manager))
+    for clazz in self.dex.classes:
       for method in clazz.methods:
         if method.editor is None: continue
         for opcode in method.editor.opcode_list:
           opcode.set_ref_item()
-    return dex
-  def translate_encoded_value(self, manager, encoded_value):
-    if encoded_value.type == dex.ENCODED_VALUE_ARRAY:
-      pass
-    if encoded_value.type == dex.ENCODED_VALUE_STRING:
-      pass
-    if encoded_value.type == dex.ENCODED_VALUE_METHOD:
-      pass
 
-    return translate_encoded_value(manager, encoded_value)
+    return self.dex
+  def translate_encoded_value(self, parent, manager, encoded_value):
+
+    return translate_encoded_value(self.dex, parent, manager, encoded_value)
 
   def extract_from_annotation_set_item(self, parent, manager, annotation_set_item):
     ret = []
@@ -36,13 +31,13 @@ class DexConverter(object):
       visibility = annotation_item.visibility
       type_idx = annotation_item.annotation.type_idx
       elements = []
-      type_name = manager.string_list[type_idx]
+      type_name = manager.type_list[type_idx]
       for x in range(annotation_item.annotation.size):
         name_idx = annotation_item.annotation.elements[x].name_idx
         value = annotation_item.annotation.elements[x].value
 
         elements.append((manager.string_list[name_idx],
-            self.translate_encoded_value(manager, value)
+            self.translate_encoded_value(parent, manager, value)
         ))
       ret.append(
         normalize.DexAnnotation(parent, visibility, type_name, elements)
@@ -57,10 +52,11 @@ class DexConverter(object):
     item.superclass = manager.type_list[cdi.superclass_idx]
     item.interfaces = [manager.type_list[x] for x in cdi.interfaces]
     item.name = item.type
-    item.values = normalize.DexArray()
-    if cdi.static_values :
-      for x in cdi.static_values.value.values:
-        item.values.value_list.append(normalize.DexValue(x.value, x.type))
+    item.values = []
+
+#    if cdi.static_values :
+#      for x in cdi.static_values.value.values:
+#        item.values.append(normalize.DexValue(x.value, x.type))
     if cdi.source_file_idx:
       try:
         item.source_file_name = manager.string_list[cdi.source_file_idx]
@@ -197,10 +193,12 @@ class DexConverter(object):
 
 
 
-def translate_encoded_value(manager, encoded_value):
+def translate_encoded_value(dex_pool, parent, manager, encoded_value):
   #print('translate value(type : {}) : {} -> {}'.format(encoded_value.type, encoded_value, encoded_value.value))
   value = encoded_value.value
-  if encoded_value.type == normalize.VALUE_TYPE_METHOD:
+  _type = encoded_value.type
+  if _type == normalize.VALUE_TYPE_METHOD:
+    #todo : get method from method pool
     #create_method(self, class_name, method_name, proto_shorty, parameter, return_type):
     proto = manager.proto_list[value.proto_idx]
     shorty = manager.string_list[proto.shorty_idx]
@@ -216,36 +214,37 @@ def translate_encoded_value(manager, encoded_value):
     
     value = manager.create_method(class_type, method_name, shorty, parameters, return_type)
 
-  if encoded_value.type == normalize.VALUE_TYPE_ANNOTATION:
+  if _type == normalize.VALUE_TYPE_ANNOTATION:
+    #todo : get annotation from annotation pool
     type_name = manager.type_list[value.type_idx]
     key_name_tuples = []
     for x in value.elements:
       key_name_tuples.append((
-        manager.string_list[x.name_idx], translate_encoded_value(manager, x.value)
+        manager.string_list[x.name_idx], translate_encoded_value(dex_pool, parent, manager, x.value)
       ))
-    value = normalize.DexAnnotation(None, None, type_name, key_name_tuples)
+    value = normalize.DexAnnotation(parent, None, type_name, key_name_tuples)
 
-  if encoded_value.type == normalize.VALUE_TYPE_FIELD:
+  if _type == normalize.VALUE_TYPE_FIELD or _type == normalize.VALUE_TYPE_ENUM:
+    #todo : get field from field pool
     parent = manager.type_list[value.class_idx]
+    #parent = dex_pool.get_class(parent)
+    
     field_name = manager.string_list[value.name_idx]
     type_name = manager.type_list[value.type_idx]
     access_flags = 0
     
     value = normalize.DexField(parent, field_name, type_name, access_flags)
   
-  if encoded_value.type == normalize.VALUE_TYPE_BOOLEAN:
+  if _type == normalize.VALUE_TYPE_BOOLEAN:
     value = normalize.DexValue(True if value else False, value_type=normalize.VALUE_TYPE_BOOLEAN)
   
-  if encoded_value.type == normalize.VALUE_TYPE_ARRAY:
-    values = translate_encoded_array(value)
-    return [translate_encoded_value(manager, x) for x in values]
+  if _type == normalize.VALUE_TYPE_ARRAY:
+    values = value.values
+    ret = [translate_encoded_value(dex_pool, parent, manager, x) for x in values]
+    return ret
 
 
-  return normalize.DexValue(value, encoded_value.type)
-
-def translate_encoded_array(encoded_array):
-  #print(encoded_array)
-  return [x.value for x in encoded_array.values]
+  return normalize.DexValue(value, _type)
 
 def code_to_editor(manager, code):
   e = editor.Editor()
