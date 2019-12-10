@@ -189,7 +189,8 @@ class SectionManager(object):
       x.update(p)
     for string_ in self.externel_manager.externel_string_list:
       x.add(string_)
-    x.remove(None)
+    if None in x:
+      x.remove(None)
     x = list(x)
     x.sort()
     for strings in x:

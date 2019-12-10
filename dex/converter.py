@@ -318,7 +318,7 @@ class CodeItemReader(object):
 
       self.opcodes.append(instruction)
     type_addrs = []
-    if code_item.tries and False:
+    if code_item.tries:
       for t in code_item.tries:
         catch_handlers = t.handlers
         for handler in catch_handlers.list:
