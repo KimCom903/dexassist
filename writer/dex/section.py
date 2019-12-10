@@ -155,6 +155,13 @@ class FieldSection(Section):
       return
     self.field_map[dex_field] = self.index # set id
     self.reverse_field_map[self.index] = dex_field
+    try:
+      clazz_type = dex_field.clazz.type
+    except:
+      clazz_type = dex_field.clazz
+    self.section_.type_section.add_item(clazz_type)
+    self.section_.type_section.add_item(dex_field.type)
+    self.section_.string_section.add_item(dex_field.name)
     self.index += 1
   def get_item(self, value):
     return self.reverse_field_map[value]
@@ -177,12 +184,17 @@ class MethodSection(Section):
       return
     self.method_map[dex_method] = self.index # set id
     self.reverse_method_map[self.index] = dex_method
+
+    self.section_.string_section.add_item(dex_method.name)
     self.index += 1
   def get_item(self, value):
     return self.reverse_method_map[value]
 
   def get_item_index(self, value):
-    return self.method_map[value]  
+    try:
+      return self.method_map[value]  
+    except:
+      raise Exception('method {} not found'.format(value))
   def get_items(self):
     return list(self.method_map.keys())
 
@@ -405,13 +417,16 @@ class AnnotationSetSection(Section):
   def add_item(self, value):
     if self.frozen:
       raise Exception('section is frozen')
+    if value is None: return
+
+
     key = self.hash(value)
+    #print('add annotation set {}'.format(key))
     if key in self.annotation_set_map: return
     self.annotation_set_map[key] = self.index # set id
     self.reverse_annotation_set_map[self.index] = value
     self.index += 1
-    if value is None:
-      return
+
     for x in value:
       if x:
         if isinstance(x, list):
@@ -427,18 +442,20 @@ class AnnotationSetSection(Section):
         ret += self.get_dex_value_hash(i)
       return ret
     else:
-      return str(val)
+      return str(val.get_type())
 
   def hash(self, item):
     key = ''
     if item is None: return 'None'
-    for x in item:
-      key += x.type_name
-      for elem in x.elements:
-        key += elem[0] + ',' + self.get_dex_value_hash(elem[1])
-        
-   
+    if isinstance(item, list):
+      for x in item:
+        key += self.hash(x)   
+      return key
+    key += item.type_name
+    for elem in item.elements:
+      key += elem[0] + ',' + self.get_dex_value_hash(elem[1])
     return key
+    
 
 
   def get_items(self):
@@ -454,5 +471,8 @@ class AnnotationSetSection(Section):
 
   def get_offset_by_item(self, item):
     index = self.get_index_by_item(item)
-    print('annotation index : {}'.format(index))
     return self.annotation_offset_map[index]
+
+  def set_offset_by_item(self, item, offset):
+    index = self.get_index_by_item(item)
+    self.annotation_offset_map[index] = item

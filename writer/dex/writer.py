@@ -170,7 +170,6 @@ class SectionManager(object):
     elif value.get_type() == VALUE_TYPE_TYPE:
       self.get_section(SECTION_TYPE).add_item(value.value)
     elif value.get_type() == VALUE_TYPE_ENUM or value.get_type() == VALUE_TYPE_FIELD:
-      print('add value : {}'.format(value.value))
       self.get_section(SECTION_FIELD).add_item(value.value)
       self.get_section(SECTION_TYPE).add_item(value.value.type)
       self.get_section(SECTION_TYPE).add_item(value.value.clazz) # for external field
@@ -190,6 +189,7 @@ class SectionManager(object):
       x.update(p)
     for string_ in self.externel_manager.externel_string_list:
       x.add(string_)
+    x.remove(None)
     x = list(x)
     x.sort()
     for strings in x:
@@ -197,9 +197,9 @@ class SectionManager(object):
 
   def build_type_section(self, dex_pool):
     section = self.get_section(SECTION_TYPE)
+    str_section = self.get_section(SECTION_STRING)
     type_list = set()
     for clazz in dex_pool:
-      print('class type : {}'.format(clazz.type))
       type_list.add(clazz.type)
       type_list.update(clazz.interfaces)
       
@@ -228,6 +228,7 @@ class SectionManager(object):
     x.sort()
     for types in x:
       section.add_item(types)
+      str_section.add_item(types)
 
   def build_proto_section(self, dex_pool):
     section = self.get_section(SECTION_PROTO)
@@ -259,6 +260,7 @@ class SectionManager(object):
     initial_values = []
     for field in x:
       section.add_item(field)
+
       if field.annotations:
         self.get_section(SECTION_ANNOTATION_SET).add_item(field.annotations)
 
@@ -277,6 +279,7 @@ class SectionManager(object):
       self.build_code_item_section(method)
       self.build_debug_info_item_section(method)
       if method.annotations:
+        print('add method annotations! key : {}'.format(self.get_section(SECTION_ANNOTATION_SET).hash(method.annotations)))
         self.get_section(SECTION_ANNOTATION_SET).add_item(method.annotations)
       if method.param_annotations:
         for ann in method.param_annotations:
@@ -348,6 +351,7 @@ class SectionManager(object):
       elif code.get_ref_type() == INSTRUCT_TYPE_FIELD:
         self.get_section(SECTION_FIELD).add_item(item)
       elif code.get_ref_type() == INSTRUCT_TYPE_METHOD:
+        print('add method - {}'.format(item))
         self.get_section(SECTION_METHOD).add_item(item)
       elif code.get_ref_type() == INSTRUCT_TYPE_CALL_SITE:
         self.get_section(SECTION_CALL_SITE).add_item(item)
@@ -403,13 +407,17 @@ class DexWriter(object):
     self.num_code_item_items = 0
     self.num_class_data_items = 0
 
+    self.param_annotation_offset_map = {}
+
   def write(self, stream):
     for clazz in self.dex_class_pool.classes:
       clazz.fix()
       index = self.multidex_policy.get_multidex_index(clazz)
+      index = 1
       if index not in self.dex_pool_dict:
         self.dex_pool_dict[index] = []
       self.dex_pool_dict[index].append(clazz)
+
     for dex_pool_index in self.dex_pool_dict:
       stream.set_output_index(index)
       self.build_dex(self.dex_pool_dict[dex_pool_index], stream)
@@ -724,7 +732,12 @@ class DexWriter(object):
     for x in self.get_section(SECTION_FIELD).get_items():
       x.index = index
       index += 1
-      writer.write_ushort(type_section.get_item_index(x.clazz.type))
+      try:
+        clazz_type = x.clazz.type
+      except:
+        clazz_type = x.clazz
+
+      writer.write_ushort(type_section.get_item_index(clazz_type))
       writer.write_ushort(type_section.get_item_index(x.type))
       writer.write_int(string_section.get_item_index(x.name))
 
@@ -788,14 +801,10 @@ class DexWriter(object):
     index_writer.write_int(offset)
     encoded_array_section = self.get_section(SECTION_ENCODED_ARRAY)
     if clazz.static_initializers:
-      print("static initializers are present")
       offset = encoded_array_section.get_offset_by_item(clazz.static_initializers)
     else:
       offset = NO_OFFSET
     index_writer.write_int(offset)
-    print('class summary')
-    print('class type {}'.format(clazz.type))
-    print('static field length : {}'.format(len(static_fields)))
     
 
     if not clazz_has_data: return index
@@ -868,15 +877,13 @@ class DexWriter(object):
       writer.write_uleb(type_section.get_item_index(ann.type))
       elems = ann.elements
       writer.write_uleb(len(elems))
-      print('annotation type : {}'.format(ann.type))
-      print('elements size : {}'.format(len(elems)))
       for elem in elems:
         name_idx = string_section.get_item_index(elem[0])
-        if isinstance(elem[1], list):
-          print(' {} - {}'.format(elem[0], [str(x) for x in elem[1]]))
+        # if isinstance(elem[1], list):
+        #   print(' {} - {}'.format(elem[0], [str(x) for x in elem[1]]))
 
-        else:
-          print(' {} - {}'.format(elem[0], elem[1]))
+        # else:
+        #   print(' {} - {}'.format(elem[0], elem[1]))
 
         writer.write_uleb(name_idx)
         self.write_encoded_value(writer, elem[1])
@@ -888,10 +895,13 @@ class DexWriter(object):
     if self.should_create_empty_annotation_set(): writer.write_int(0)
 
     annotation_set_section = self.get_section(SECTION_ANNOTATION_SET)
-    print(annotation_set_section.reverse_annotation_set_map)
     for index in annotation_set_section.get_items():
       annotations = annotation_set_section.get_item_by_index(index)
-      print('process annotation : {}'.format([str(x) for x in annotations]))
+      if annotations is None:
+        print('[warning] annotation index {} is None'.format(index))
+        continue
+
+      #print('process annotation : {}'.format([str(x) for x in annotations]))
 
       writer.align()
       annotation_set_section.set_offset_by_index(index, writer.position)
@@ -899,6 +909,11 @@ class DexWriter(object):
       for annotation in annotations:
         writer.write_int(annotation.offset)
 
+  def hash_param_annotation(self, param_annotation):
+    if isinstance(param_annotation, list):
+      return '|'.join([str(self.hash_param_annotation(x)) for x in param_annotation])
+    
+    return hash(param_annotation)
   
   def write_annotation_set_refs(self, writer, dex_pool):
     writer.align()
@@ -910,21 +925,28 @@ class DexWriter(object):
       for method in clazz.methods:
         param_annotation = method.param_annotations
         if not param_annotation: continue
-        prev = interned.get(param_annotation, -1)
+        
+        interned_key = self.hash_param_annotation(param_annotation)
+        prev = interned.get(interned_key, -1)
         if prev != -1:
           method.annotation_set_ref_list_offset = prev
-          param_annotation.offset = prev
+          self.param_annotation_offset_map[self.hash_param_annotation(param_annotation)] = prev
+          #ann_section.set_offset_by_item(param_annotation, prev)
           continue
 
         writer.align()
         position = writer.position
-        param_annotation.offset = position
-        interned[param_annotation] = position
+        interned[interned_key] = position
+        self.param_annotation_offset_map[self.hash_param_annotation(param_annotation)] = position
+        #ann_section.set_offset_by_item(param_annotation, position)
         self.num_annotation_set_ref_items += 1
         writer.write_int(len(param_annotation))
+
         for ann in param_annotation:
-          if ann.offset != NO_OFFSET:
-            writer.write_int(ann.offset)
+          
+          offset = self.param_annotation_offset_map.get(self.hash_param_annotation(ann), NO_OFFSET)
+          if offset != NO_OFFSET:
+            writer.write_int(offset)
           elif self.should_create_empty_annotation_set():
             writer.write_int(self.annotation_set_section_offset)
           else:
@@ -961,7 +983,13 @@ class DexWriter(object):
         if method.annotations:
           method_annotations += 1
           tmp_buffer.write_int(method_section.get_item_index(method))
-          tmp_buffer.write_int(annotation_set_section.get_offset_by_item(method.annotations))
+          try:
+            offset = annotation_set_section.get_offset_by_item(method.annotations)
+          except:
+            print('[WARNING] {} - {} annotation not found'.format(clazz.type, method.name))
+            offset = 0
+
+          tmp_buffer.write_int(offset)
       
       for method in clazz.methods:
         if method.annotation_set_ref_list_offset != NO_OFFSET:
@@ -985,7 +1013,11 @@ class DexWriter(object):
       self.num_annotation_directory_items += 1
       clazz.annotation_dir_offset = writer.position
       #writer.write_int(0)
-      writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
+      if clazz.annotations:
+        writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
+      else:
+        writer.write_int(0)
+
       writer.write_int(field_annotations)
       writer.write_int(method_annotations)
       writer.write_int(param_annotations)
@@ -998,6 +1030,10 @@ class DexWriter(object):
     #  return
     if not isinstance(val, DexValue):
       val = DexValue(val)
+    if isinstance(val, list):
+      for x in val:
+        self.write_encoded_value(writer, x)
+      return
     val.encode(self.manager, writer)
 
   def get_magic(self, api_level):

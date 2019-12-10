@@ -57,7 +57,7 @@ class DexConverter(object):
 #    if cdi.static_values :
 #      for x in cdi.static_values.value.values:
 #        item.values.append(normalize.DexValue(x.value, x.type))
-    if cdi.source_file_idx:
+    if cdi.source_file_idx and cdi.source_file_idx != 4294967295:
       try:
         item.source_file_name = manager.string_list[cdi.source_file_idx]
       except:

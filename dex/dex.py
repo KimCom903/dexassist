@@ -431,6 +431,16 @@ class EncodedValue(DexItem):
       self.value = self.root_stream.read_ubyte(self.base_index + self.read_size).value
       self.read_size += 1
       return
+    # elif self.type == ENCODED_VALUE_SHORT:
+    #   self.value = self.root_stream.read_short(self.base_index + self.read_size).value
+    #   self.read_size += 2
+    #   return
+    # elif self.type == ENCODED_VALUE_CHAR:
+    #   self.value = self.root_stream.read_ushort(self.base_index + self.read_size).value
+    #   self.read_size += 2
+    #   return
+    # why crash??
+
     value = bytearray(8)
     for i in range(self.value_size):
       value[i] = self.root_stream.read_ubyte(self.base_index + self.read_size).value
