@@ -573,7 +573,11 @@ class Instruction35c(Instruction):
     return self.BBBB
   def write_byte_stream(self, stream, manager):
     self.write_op(stream, (self.A << 4) + self.G, self.op)
-    stream.write_ushort(manager.manager.method_section.get_item_index(self.BBBB))
+    try:
+      stream.write_ushort(manager.manager.method_section.get_item_index(self.BBBB))
+    except:
+      raise Exception('op was {}'.format(self.op))
+      
     self.write_op(stream, (self.F << 4) + self.E, (self.D << 4) + self.C)
     return len(self)
   
