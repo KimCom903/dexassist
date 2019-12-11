@@ -116,10 +116,10 @@ class TryCatch(object):
     return self.catch_handlers
 
   def get_start_addr(self): ##offset item set needed
-    pass
+    return self.start
 
-  def get_code_count(self):
-    pass
+  def get_code_count(self): ## this needs calculation in code_writer
+    return 0 
 
   
 
@@ -164,3 +164,14 @@ if opcode
 
 ```
 """
+
+class DexHandlerTypeAddr(object):
+  def __init__(self, type_, addr):
+    self.exception_type = type_
+    self.addr = addr
+  def get_handler_addr(self):
+    return self.addr
+  def get_exception_type(self):
+    return self.exception_type
+  def __str__(self):
+    return self.exception_type

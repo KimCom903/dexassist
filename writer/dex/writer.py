@@ -588,7 +588,10 @@ class DexWriter(object):
       handler_map = dict()
     
       for try_block in try_blocks:
-        handler_map[try_block.get_exception_handlers()] = 0
+        key = ""
+        for it in try_block.get_exception_handlers():
+          key += str(it)
+        handler_map[key] = 0
       ehbuf.write_uleb(len(handler_map))
 
     for try_block in try_blocks:
@@ -597,13 +600,17 @@ class DexWriter(object):
 
       if len(try_block.get_exception_handlers()) == 0:
         raise Exception("try block has no exception handlers")
-      
-      offset = handler_map[try_block.get_exception_handlers()]
+
+
+      key = ""
+      for it in try_block.get_exception_handlers():
+        key += str(it)
+      offset = handler_map[key]
       if offset != 0:
         code_writer.write_ushort(offset)
         return
       offset = ehbuf.get_position()
-      handler_map[try_block.get_exception_handlers()] = offset
+      handler_map[key] = offset
       code_writer.write_ushort(offset)
 
       eh_size = len(try_block.get_exception_handlers())
@@ -611,7 +618,7 @@ class DexWriter(object):
       if eh_last.get_exception_type() is None:
         eh_size = -eh_size + 1
       
-      ehbuf.write_sleb128(eh_size)
+      ehbuf.write_sleb(eh_size)
       for eh in try_block.get_exception_handlers():
         exception_type = eh.get_exception_type() ## need define handler_class, now, handler is tuple, there is no function
         code_addr = eh.get_handler_addr() 

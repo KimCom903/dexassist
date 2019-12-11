@@ -149,8 +149,9 @@ class DexClassItem(object):
     for x in self.methods:
       editor = x.get_editor()
       if editor is None: continue
-
-
+      for try_item in editor.tries:
+        for handler in try_item.catch_handlers:
+          ret.add(handler.exception_type)
       for opcode in editor.opcodes:
         if opcode.op == OP_CONST_STRING:
           ret.add(opcode.BBBB)
@@ -421,7 +422,7 @@ class DexValue(object):
     if type_value == VALUE_TYPE_ARRAY:
       ret = bytearray()
       for item in self.value:
-        ret += item.value_as_byte(manager, item.value_type)
+        ret += item.value_as_byte(manager, item.value_type, stream)
       return ret
     if type_value == VALUE_TYPE_ANNOTATION:
       return bytes() # process with encode

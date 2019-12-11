@@ -118,18 +118,16 @@ class BaseWriteStream(object):
     return size
 
   def write_sleb(self, value):
-    ret = bytearray()
-    remaining = value >> 7
-    has_more = 128
-    end = 0 if 0x7fffffff & value == 0 else 1
-    size = 0
-    while has_more:
-      has_more = 0 if remaining == end and (remaining & 1) == ((value >> 6) & 1) else 128
-      ret.append(has_more | (value & 127))
-      value = remaining
-      remaining >>= 7
+    if value < 0:
+      self.wrtie_ubyte(0x7f)
+    size = 1
+    #print('start write uleb with value {}'.format(value))
+    while (value & 0xffffffff) > 0x7f:
+      self.write_ubyte((value & 0x7f) | 0x80)
       size += 1
-    self.write_byte_array(ret)
+      value = rshift(value, 7)
+    self.write_ubyte(value)
+    return size
 
   def write_ulebp1(self, value):
     self.write_uleb(value + 1)

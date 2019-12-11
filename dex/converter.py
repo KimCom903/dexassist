@@ -321,11 +321,10 @@ class CodeItemReader(object):
     if code_item.tries:
       for t in code_item.tries:
         catch_handlers = t.handlers
-        for handler in catch_handlers.list:
-          for type_addr_pair in handler.handlers:
-            type_idx, addr = type_addr_pair.type_idx, type_addr_pair.addr
-            type_addrs.append((self.manager.type_list[type_idx], addr))
-          catch_all_addr = handler.catch_all_addr
+        for type_addr_pair in catch_handlers.handlers:
+          type_idx, addr = type_addr_pair.type_idx, type_addr_pair.addr
+          type_addrs.append(editor.DexHandlerTypeAddr(self.manager.type_list[type_idx], addr))
+        catch_all_addr = catch_handlers.catch_all_addr
 
         trycatch = editor.TryCatch(self.editor, t.start_addr, t.start_addr + t.insn_count - 1, type_addrs, catch_all_addr)
         self.editor.tries.append(trycatch)
