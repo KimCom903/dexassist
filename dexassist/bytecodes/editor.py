@@ -94,13 +94,14 @@ try-catch class.
 
 """
 class TryCatch(object):
-  def __init__(self, editor, opcodes, catch_handlers, catch_all_handlers):
+  def __init__(self, editor, start, end, catch_handlers, catch_all_handlers):
     self.editor = editor
-    self.opcodes = opcodes
+    self.start = start
+    self.end = end
     self.catch_handlers = catch_handlers
     self.catch_all_handlers = catch_all_handlers
   def __str__(self):
-    return 'start : {} end : {}'.format(self.start, self.end)
+    return ""
   def is_in(self, opcode):
     if isinstance(opcode, int):
       offset = opcode
@@ -115,10 +116,10 @@ class TryCatch(object):
     return self.catch_handlers
 
   def get_start_addr(self): ##offset item set needed
-    pass
+    return self.start
 
   def get_code_count(self): ## this needs calculation in code_writer
-    pass
+    return self.end - self.start + 1
     
 
   
@@ -166,11 +167,11 @@ if opcode
 """
 
 class DexHandlerTypeAddr(object):
-  def __init__(self, type_):
+  def __init__(self, type_, addr):
     self.exception_type = type_
-    self.handler = None
+    self.addr = addr
   def get_handler_addr(self):
-    pass
+    return self.addr
   def get_exception_type(self):
     return self.exception_type
   def __str__(self):

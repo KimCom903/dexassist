@@ -595,8 +595,8 @@ class DexWriter(object):
       ehbuf.write_uleb(len(handler_map))
 
     for try_block in try_blocks:
-      code_writer.write_int(try_block.get_start_addr()) ##수정 필요
-      code_writer.write_ushort(try_block.get_code_count()) ##수정 필요
+      code_writer.write_int(try_block.get_start_addr())
+      code_writer.write_ushort(try_block.get_code_count())
 
       if len(try_block.get_exception_handlers()) == 0:
         raise Exception("try block has no exception handlers")
