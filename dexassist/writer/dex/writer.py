@@ -588,7 +588,10 @@ class DexWriter(object):
       handler_map = dict()
     
       for try_block in try_blocks:
-        handler_map[try_block.get_exception_handlers()] = 0
+        key = ""
+        for it in try_block.get_exception_handlers():
+          key += str(it)
+        handler_map[key] = 0
       ehbuf.write_uleb(len(handler_map))
 
     for try_block in try_blocks:
@@ -597,13 +600,17 @@ class DexWriter(object):
 
       if len(try_block.get_exception_handlers()) == 0:
         raise Exception("try block has no exception handlers")
-      
-      offset = handler_map[try_block.get_exception_handlers()]
+
+
+      key = ""
+      for it in try_block.get_exception_handlers():
+        key += str(it)
+      offset = handler_map[key]
       if offset != 0:
         code_writer.write_ushort(offset)
         return
       offset = ehbuf.get_position()
-      handler_map[try_block.get_exception_handlers()] = offset
+      handler_map[key] = offset
       code_writer.write_ushort(offset)
 
       eh_size = len(try_block.get_exception_handlers())
@@ -611,10 +618,10 @@ class DexWriter(object):
       if eh_last.get_exception_type() is None:
         eh_size = -eh_size + 1
       
-      ehbuf.write_sleb128(eh_size)
+      ehbuf.write_sleb(eh_size)
       for eh in try_block.get_exception_handlers():
-        exception_type = eh.get_exception_type()
-        code_addr = eh.get_handler_addr()
+        exception_type = eh.get_exception_type() ## need define handler_class, now, handler is tuple, there is no function
+        code_addr = eh.get_handler_addr() 
         if exception_type is not None:
           # regular
           ehbuf.write_uleb(self.get_section(SECTION_TYPE).get_item_index(exception_type))
@@ -786,7 +793,7 @@ class DexWriter(object):
     index_writer.write_uint(clazz.access_flags)
     index_writer.write_uint(type_section.get_item_index(clazz.superclass))
     index_writer.write_uint(type_list_section.get_offset_by_item(clazz.interfaces))
-    index_writer.write_uint(0) # source_file_idx
+    index_writer.write_uint(string_section.get_item_index(clazz.source_file_name)) # source_file_idx
     index_writer.write_uint(clazz.annotation_dir_offset)
    
 
@@ -1013,12 +1020,10 @@ class DexWriter(object):
           continue
       self.num_annotation_directory_items += 1
       clazz.annotation_dir_offset = writer.position
-      #writer.write_int(0)
       if clazz.annotations:
         writer.write_int(annotation_set_section.get_offset_by_item(clazz.annotations))
       else:
-        writer.write_int(0)
-
+        writer.write_int(0) 
       writer.write_int(field_annotations)
       writer.write_int(method_annotations)
       writer.write_int(param_annotations)

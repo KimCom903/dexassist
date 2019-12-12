@@ -84,7 +84,7 @@ class Editor(object):
     for x in self.opcodes:
       if x.unique_key == opcode.unique_key:
         return i
-      i += 1
+      i += len(x)
     return -1
 
 
@@ -101,7 +101,7 @@ class TryCatch(object):
     self.catch_handlers = catch_handlers
     self.catch_all_handlers = catch_all_handlers
   def __str__(self):
-    return 'start : {} end : {}'.format(self.start, self.end)
+    return ""
   def is_in(self, opcode):
     if isinstance(opcode, int):
       offset = opcode
@@ -111,6 +111,18 @@ class TryCatch(object):
     start_offset = self.editor.get_opcode_offset(self.start)
     end_offset = self.editor.get_opcode_offset(self.end)
     return offset >= start_offset and offset <= end_offset
+
+  def get_exception_handlers(self):
+    return self.catch_handlers
+
+  def get_start_addr(self): ##offset item set needed
+    return self.start
+
+  def get_code_count(self): ## this needs calculation in code_writer
+    return self.end - self.start + 1
+    
+
+  
 
 """
 virtual opcode class.
@@ -153,3 +165,14 @@ if opcode
 
 ```
 """
+
+class DexHandlerTypeAddr(object):
+  def __init__(self, type_, addr):
+    self.exception_type = type_
+    self.addr = addr
+  def get_handler_addr(self):
+    return self.addr
+  def get_exception_type(self):
+    return self.exception_type
+  def __str__(self):
+    return self.exception_type
