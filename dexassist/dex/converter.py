@@ -142,7 +142,7 @@ class DexConverter(object):
       if m.code:
         x.register_count = m.code.registers_size
       item.methods.append(x)
-      manager.method_item_list[item.type + method_name + proto_shorty] = x
+      manager.method_item_list[item.type + method_name + ','.join(str(x) for x in self.parameters] = x
       manager.proto_item_list[return_type + "".join(parameter)] = x.create_proto()
     
     method_idx = 0
@@ -174,7 +174,7 @@ class DexConverter(object):
       if m.code:
         x.register_count = m.code.registers_size
       item.methods.append(x)
-      manager.method_item_list[item.type + method_name + proto_shorty] = x
+      manager.method_item_list[item.type + method_name + ','.join(str(x) for x in self.parameters] = x
       manager.proto_item_list[return_type + "".join(parameter)] = x.create_proto()
     return item
 
