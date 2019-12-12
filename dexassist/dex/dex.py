@@ -701,7 +701,7 @@ class EncodedCatchHandlerList(DexItem):
   descriptor = {
     'size': ULEB
   }
-
+  
 
 class EncodedCatchHandler(DexItem):
   descriptor = {
@@ -715,7 +715,7 @@ class EncodedCatchHandler(DexItem):
       item = EncodedTypeAddrpair(self.manager, self.root_stream, self.base_index + self.read_size)
       self.handlers.append(item)
       self.read_size += item.read_size
-    if self.size < 0:
+    if self.size <= 0:
       item = self.root_stream.read_uleb(self.base_index + self.read_size)
       self.catch_all_addr = item.value
       self.read_size += item.read_size

@@ -101,7 +101,7 @@ class TryCatch(object):
     self.catch_handlers = catch_handlers
     self.catch_all_handlers = catch_all_handlers
   def __str__(self):
-    return ""
+    return '{} {} {}'.format(self.start, self.end, self.catch_all_handlers)
   def is_in(self, opcode):
     if isinstance(opcode, int):
       offset = opcode
