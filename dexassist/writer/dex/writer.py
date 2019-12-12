@@ -3,15 +3,15 @@ try:
   from dexassist.writer.multidex.multidex import DefaultMultiDexPolicy
   from dexassist.writer.dex.section import *
 except:
-  from writer.multidex.multidex import DefaultMultiDexPolicy
-  from writer.dex.section import *
+  from .multidex import multidex
+  from .section import *
 
-from writer.dex.util import InstructionUtil
+from .util import InstructionUtil
 
-from writer.dex.stream import OutputStream
-from writer.dex.stream import TempOutputStream
-from writer.dex.stream import InstructionWriter
-from normalize import DexValue, DexMethod, DexField
+from .stream import OutputStream
+from .stream import TempOutputStream
+from .stream import InstructionWriter
+from dexassist.normalize import DexValue, DexMethod, DexField
 NO_INDEX = -1
 NO_OFFSET = 0
 
@@ -379,7 +379,7 @@ class DexWriter(object):
   def __init__(self, dex_class_pool):
     self.manager = SectionManager(dex_class_pool.manager)
     self.dex_class_pool = dex_class_pool
-    self.multidex_policy = DefaultMultiDexPolicy()
+    self.multidex_policy = multidex.DefaultMultiDexPolicy()
     self.dex_pool_dict = {}
     self.string_index_section_offset = NO_OFFSET
     self.type_section_offset = NO_OFFSET

@@ -1,0 +1,9 @@
+{
+
+"Lcom/example/android/contactmanager/R;":"*",
+"Lcom/example/android/contactmanager/R$string;":"*",
+"Lcom/example/android/contactmanager/R$layout;":"*",
+"Lcom/example/android/contactmanager/R$id;":"*",
+"Lcom/example/android/contactmanager/R$drawable;":"*",
+"Lcom/example/android/contactmanager/R$attr;":"*"
+}

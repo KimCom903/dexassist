@@ -7,6 +7,7 @@ except:
   import normalize
   from dex import dex
   from bytecodes import editor, base
+  
 
 class DexConverter(object):
   def get_dex(self, header, manager):
@@ -318,7 +319,7 @@ class CodeItemReader(object):
 
       self.opcodes.append(instruction)
     type_addrs = []
-    if code_item.tries:
+    if code_item.tries and False:
       for t in code_item.tries:
         catch_handlers = t.handlers
         for handler in catch_handlers.list:
