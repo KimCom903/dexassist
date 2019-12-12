@@ -277,7 +277,7 @@ class DexMethod(object):
     return ret
   
   def __hash__(self):
-    return hash(self.clazz.name + self.name + self.proto.shorty)
+    return hash(self.clazz.name + self.name + ','.join(str(x) for x in self.parameters))
   def __eq__(self,othr):
     if(hash(self) == hash(othr)):
       return True

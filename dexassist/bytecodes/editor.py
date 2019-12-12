@@ -101,7 +101,7 @@ class TryCatch(object):
     self.catch_handlers = catch_handlers
     self.catch_all_handlers = catch_all_handlers
   def __str__(self):
-    return ""
+    return '{} {} {}'.format(self.start, self.end, self.catch_all_handlers)
   def is_in(self, opcode):
     if isinstance(opcode, int):
       offset = opcode
@@ -175,4 +175,4 @@ class DexHandlerTypeAddr(object):
   def get_exception_type(self):
     return self.exception_type
   def __str__(self):
-    return self.exception_type
+    return str(self.exception_type)

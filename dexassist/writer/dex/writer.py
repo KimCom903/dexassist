@@ -280,7 +280,7 @@ class SectionManager(object):
       self.build_code_item_section(method)
       self.build_debug_info_item_section(method)
       if method.annotations:
-        print('add method annotations! key : {}'.format(self.get_section(SECTION_ANNOTATION_SET).hash(method.annotations)))
+        #print('add method annotations! key : {}'.format(self.get_section(SECTION_ANNOTATION_SET).hash(method.annotations)))
         self.get_section(SECTION_ANNOTATION_SET).add_item(method.annotations)
       if method.param_annotations:
         for ann in method.param_annotations:
@@ -345,16 +345,15 @@ class SectionManager(object):
       if code.op == 0xfb:
         self.get_section(SECTION_METHOD).add_item(item[0])
         self.get_section(SECTION_PROTO).add_item(item[1])
-      elif code.get_ref_type() == INSTRUCT_TYPE_STRING:
+      elif code.ref_type == INSTRUCT_TYPE_STRING:
         self.get_section(SECTION_STRING).add_item(item)
-      elif code.get_ref_type() == INSTRUCT_TYPE_TYPE:
+      elif code.ref_type == INSTRUCT_TYPE_TYPE:
         self.get_section(SECTION_TYPE).add_item(item)
-      elif code.get_ref_type() == INSTRUCT_TYPE_FIELD:
+      elif code.ref_type == INSTRUCT_TYPE_FIELD:
         self.get_section(SECTION_FIELD).add_item(item)
-      elif code.get_ref_type() == INSTRUCT_TYPE_METHOD:
-        print('add method - {}'.format(item))
+      elif code.ref_type == INSTRUCT_TYPE_METHOD:
         self.get_section(SECTION_METHOD).add_item(item)
-      elif code.get_ref_type() == INSTRUCT_TYPE_CALL_SITE:
+      elif code.ref_type == INSTRUCT_TYPE_CALL_SITE:
         self.get_section(SECTION_CALL_SITE).add_item(item)
         
     tries = method.get_try_blocks()
@@ -540,6 +539,7 @@ class DexWriter(object):
     code_writer.write_to(offset_writer)
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
+    print('write code item for method {} {}'.format(method.clazz.type, method.name))
     self.num_code_item_items += 1
     code_writer.align()
     code_item_offset = code_writer.get_position()
@@ -584,14 +584,19 @@ class DexWriter(object):
       ins_writer.write(ins)
       code_offset += len(ins)#.en(get_code_units()
     if len(try_blocks) > 0:
-      code_writer.align() # padding
+      #code_writer.align() # padding
+      if code_unit_count % 2 == 1: code_writer.write_ushort(0x0000)
       handler_map = dict()
-    
+      print(try_blocks)
       for try_block in try_blocks:
-        key = ""
+        print('process try block : {}'.format(try_block))
+        print('process try block : {}'.format(try_block.get_exception_handlers()))
+        key = str(try_block)
         for it in try_block.get_exception_handlers():
           key += str(it)
         handler_map[key] = 0
+      print('handler map :')
+      print(handler_map)
       ehbuf.write_uleb(len(handler_map))
 
     for try_block in try_blocks:
@@ -602,7 +607,7 @@ class DexWriter(object):
         raise Exception("try block has no exception handlers")
 
 
-      key = ""
+      key = str(try_block)
       for it in try_block.get_exception_handlers():
         key += str(it)
       offset = handler_map[key]
