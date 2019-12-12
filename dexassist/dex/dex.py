@@ -706,13 +706,13 @@ class EncodedCatchHandler(DexItem):
     'size': SLEB
   }
   def parse_remain(self):
-    self.handlers = []
+    self.type_addr_pairs = []
     self.catch_all_addr = -1
     #print('encoded catch handler size : {}'.format(self.size))
 
     for x in range(abs(self.size)):
       item = EncodedTypeAddrpair(self.manager, self.root_stream, self.base_index + self.read_size)
-      self.handlers.append(item)
+      self.type_addr_pairs.append(item)
       self.read_size += item.read_size
     if self.size <= 0:
       item = self.root_stream.read_uleb(self.base_index + self.read_size)
