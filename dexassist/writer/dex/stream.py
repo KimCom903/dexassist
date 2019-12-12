@@ -152,9 +152,7 @@ class OutputStream(BaseWriteStream):
     self.buf = buf
   
   def close(self):
-    f = open("Classes.dex", 'ab')
-    f.write(self.buf)
-    f.close()
+    pass
 
   def get_position(self):
     return self.position
