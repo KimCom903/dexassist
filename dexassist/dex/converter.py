@@ -286,10 +286,10 @@ class CodeStream(object):
     self.index = offset
 
 class CodeItemReader(object):
-  def __init__(self, editor, manager, code_item):
+  def __init__(self, editor_, manager, code_item):
     self.tries = []
     self.opcodes = []
-    self.editor = editor
+    self.editor = editor_
     self.manager = manager
     payload_size = 0
     stream = CodeStream(code_item.insns)
@@ -318,18 +318,21 @@ class CodeItemReader(object):
         instruction.payload = payload
 
       self.opcodes.append(instruction)
+
     type_addrs = []
     if code_item.tries:
       for t in code_item.tries:
+        start = t.start_addr
+        end = t.start_addr + t.insn_count - 1
         catch_handlers = t.handlers
-        for handler in catch_handlers.list:
-          for type_addr_pair in handler.handlers:
-            type_idx, addr = type_addr_pair.type_idx, type_addr_pair.addr
-            type_addrs.append((self.manager.type_list[type_idx], addr))
-          catch_all_addr = handler.catch_all_addr
+        for type_addr_pair in catch_handlers.handlers:
+          type_idx, addr = type_addr_pair.type_idx, type_addr_pair.addr
+          type_addrs.append(editor.DexHandlerTypeAddr(self.manager.type_list[type_idx],type_addr_pair.addr))
+        catch_all_addr = catch_handlers.catch_all_addr
 
-
-        trycatch = editor.TryCatch(self.editor, t.start_addr, t.start_addr + t.insn_count - 1, type_addrs, catch_all_addr)
+        trycatch = editor.TryCatch(self.editor, start, end, type_addrs, catch_all_addr)
+        for t_a_pair in type_addrs:
+          t_a_pair.handler = trycatch
         self.editor.tries.append(trycatch)
     self.editor.opcode_list = self.opcodes
 
