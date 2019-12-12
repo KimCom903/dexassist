@@ -695,8 +695,7 @@ class TryItem(DexItem):
     'insn_count': USHORT,
     'handler_off': USHORT
   }
-  pass
-
+    
 
 class EncodedCatchHandlerList(DexItem):
   descriptor = {
