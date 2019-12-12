@@ -7,6 +7,7 @@ except:
   import normalize
   from dex import dex
   from bytecodes import editor, base
+  
 
 class DexConverter(object):
   def get_dex(self, header, manager):

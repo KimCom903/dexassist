@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from normalize import DexProto, DexValue, VALUE_TYPE_ARRAY
+from dexassist.normalize import DexProto, DexValue, VALUE_TYPE_ARRAY
 SECTION_STRING = 1
 SECTION_TYPE = 2
 SECTION_PROTO = 3

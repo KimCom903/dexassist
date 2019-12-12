@@ -1,7 +1,7 @@
 from zlib import adler32
 import struct
 import inspect
-import normalize
+from .. import normalize
 """
 parse dex
 

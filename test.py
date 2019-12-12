@@ -1,7 +1,7 @@
-from dex import converter, dex
-from writer import dex as writer_dex
-from writer.dex.writer import DexWriter
-from writer.dex.stream import OutputStream
+from dexassist.dex import converter, dex
+from dexassist.writer import dex as writer_dex
+from dexassist.writer.dex.writer import DexWriter
+from dexassist.writer.dex.stream import OutputStream
 def print_dex(dex_path):
   with open(dex_path, 'rb') as f:
     x = f.read()

@@ -457,6 +457,7 @@ class DexValue(object):
     return self.value_type
   
   def get_inferenced_type(self):
+    if isinstance(self.value, DexValue): return self.value.get_type()
     if self.value is None:
       return VALUE_TYPE_NULL
     if isinstance(self.value, bool):
@@ -484,6 +485,7 @@ class DexValue(object):
       return VALUE_TYPE_FIELD
     if isinstance(self.value, DexAnnotation):
       return VALUE_TYPE_ANNOTATION
+  
     raise Exception('not treated value : {}'.format(self.value))
   def get_encoded_array_offset(self):
     return self.encoded_array_offset
