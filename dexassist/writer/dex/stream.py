@@ -119,7 +119,7 @@ class BaseWriteStream(object):
 
   def write_sleb(self, value):
     if value < 0:
-      self.wrtie_ubyte(0x7f)
+      self.write_ubyte(0x7f)
     size = 1
     #print('start write uleb with value {}'.format(value))
     while (value & 0xffffffff) > 0x7f:
@@ -150,9 +150,7 @@ class OutputStream(BaseWriteStream):
     self.buf = buf
   
   def close(self):
-    f = open("Classes.dex", 'ab')
-    f.write(self.buf)
-    f.close()
+    pass
 
   def get_position(self):
     return self.position

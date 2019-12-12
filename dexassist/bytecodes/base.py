@@ -120,8 +120,7 @@ class Instruction(object):
     return translate_opcode(self.get_op())
   def get_opcode_string(self):
     return self.op_as_string()
-  def get_ref_type(self):
-    pass
+    
   def get_item(self):
     pass
 
@@ -278,8 +277,6 @@ class Instruction20bc(Instruction):
   def __len__(self):
     return 4         
 
-  def get_ref_type(self):
-    pass
 
 # AA|op BBBB 	22x 	op vAA, vBBBB
 class Instruction22x(Instruction):
@@ -437,8 +434,6 @@ class Instruction22c(Instruction22t):
     stream.write_ushort(manager.get_section(self.get_section_type(self.op)).get_item_index(self.CCCC))
     return len(self)
 
-  def get_ref_type(self):
-    return OPCODE_TABLE[self.op][2]
  
   def get_item(self):
     return self.CCCC    
@@ -550,8 +545,6 @@ class Instruction31c(Instruction31i):
     stream.write_uint(manager.get_section(self.get_section_type(self.op)).get_item_index(self.BBBBBBBB))
     return len(self)
   
-  def get_ref_type(self):
-    return OPCODE_TABLE[self.op][2]
  
   def get_item(self):
     return self.BBBBBBBB
@@ -576,7 +569,7 @@ class Instruction35c(Instruction):
     try:
       stream.write_ushort(manager.manager.method_section.get_item_index(self.BBBB))
     except:
-      raise Exception('op was {}'.format(self.op))
+      raise Exception('op was {}, method index was {}'.format(self.op, self.BBBB))
       
     self.write_op(stream, (self.F << 4) + self.E, (self.D << 4) + self.C)
     return len(self)
@@ -623,9 +616,6 @@ class Instruction35c(Instruction):
   def __len__(self):
     return 6
 
-  def get_ref_type(self):
-    return OPCODE_TABLE[self.op][2]
- 
   def get_item(self):
     return self.BBBB    
 
@@ -684,10 +674,6 @@ class Instruction3rc(Instruction):
     
   def __len__(self):
     return 6
-
-  def get_ref_type(self):
-    return OPCODE_TABLE[self.op][2]
- 
   def get_item(self):
     return self.BBBB
 

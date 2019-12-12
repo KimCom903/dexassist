@@ -9,7 +9,7 @@ def name_generator():
   index = 0
   while True:
     index += 1
-    yield 'a' + bin(index)[2:].replace('0', 'I')
+    yield str(index) #'a' + bin(index)[2:].replace('0', 'I')
 def read_obfuscate(path):
   with open(path, 'r') as f:
     return json.load(f)

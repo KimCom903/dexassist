@@ -175,4 +175,4 @@ class DexHandlerTypeAddr(object):
   def get_exception_type(self):
     return self.exception_type
   def __str__(self):
-    return self.exception_type
+    return str(self.exception_type)

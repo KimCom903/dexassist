@@ -695,8 +695,6 @@ class TryItem(DexItem):
     'insn_count': USHORT,
     'handler_off': USHORT
   }
-    
-
 class EncodedCatchHandlerList(DexItem):
   descriptor = {
     'size': ULEB
@@ -711,6 +709,7 @@ class EncodedCatchHandler(DexItem):
     self.type_addr_pairs = []
     self.catch_all_addr = -1
     #print('encoded catch handler size : {}'.format(self.size))
+
     for x in range(abs(self.size)):
       item = EncodedTypeAddrpair(self.manager, self.root_stream, self.base_index + self.read_size)
       self.type_addr_pairs.append(item)
