@@ -706,13 +706,13 @@ class EncodedCatchHandler(DexItem):
     'size': SLEB
   }
   def parse_remain(self):
-    self.handlers = []
+    self.type_addr_pairs = []
     self.catch_all_addr = -1
     #print('encoded catch handler size : {}'.format(self.size))
 
     for x in range(abs(self.size)):
       item = EncodedTypeAddrpair(self.manager, self.root_stream, self.base_index + self.read_size)
-      self.handlers.append(item)
+      self.type_addr_pairs.append(item)
       self.read_size += item.read_size
     if self.size <= 0:
       item = self.root_stream.read_uleb(self.base_index + self.read_size)
@@ -899,23 +899,21 @@ class DexManager(object):
   def get_proto_dex_item_by_index(self, index):
     return self.proto_item_list[self.string_list[self.proto_list[index].shorty_idx]]
   def get_method_dex_item_by_index(self, index):
+    target = self.method_list[index]
+    method_name = self.string_list[target.name_idx]
+    proto = self.proto_list[target.proto_idx]
+    proto_shorty = self.string_list[proto.shorty_idx]
+    return_type_idx = proto.return_type_idx
+    parameter = []
+    return_type = self.type_list[return_type_idx]
+    if proto.type_list:
+      for type_item in proto.type_list.list:
+        parameter_type_idx = type_item.type_idx
+        type_info = self.type_list[parameter_type_idx]
+        parameter.append(type_info)
     try:
-      return self.method_item_list[self.type_list[self.method_list[index].class_idx] + \
-        self.string_list[self.method_list[index].name_idx] + \
-        self.string_list[self.proto_list[self.method_list[index].proto_idx].shorty_idx]]
+      return self.method_item_list[target.class_idx] + method_name + ','.join(str(x) for x in self.parameters]
     except:
-      target = self.method_list[index]
-      method_name = self.string_list[target.name_idx]
-      proto = self.proto_list[target.proto_idx]
-      proto_shorty = self.string_list[proto.shorty_idx]
-      return_type_idx = proto.return_type_idx
-      parameter = []
-      return_type = self.type_list[return_type_idx]
-      if proto.type_list:
-        for type_item in proto.type_list.list:
-          parameter_type_idx = type_item.type_idx
-          type_info = self.type_list[parameter_type_idx]
-          parameter.append(type_info)
       m = self.create_method(self.type_list[self.method_list[index].class_idx], method_name, proto_shorty, parameter, return_type)
       self.externel_type_list.update(parameter)
       self.externel_proto_list.add(m.create_proto())

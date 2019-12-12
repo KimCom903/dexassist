@@ -584,7 +584,6 @@ class DexWriter(object):
       ins_writer.write(ins)
       code_offset += len(ins)#.en(get_code_units()
     if len(try_blocks) > 0:
-      #code_writer.align() # padding
       if code_unit_count % 2 == 1: code_writer.write_ushort(0x0000)
       handler_map = dict()
       print(try_blocks)

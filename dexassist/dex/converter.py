@@ -142,7 +142,7 @@ class DexConverter(object):
       if m.code:
         x.register_count = m.code.registers_size
       item.methods.append(x)
-      manager.method_item_list[item.type + method_name + proto_shorty] = x
+      manager.method_item_list[item.type + method_name + ','.join(str(x) for x in self.parameters] = x
       manager.proto_item_list[return_type + "".join(parameter)] = x.create_proto()
     
     method_idx = 0
@@ -174,7 +174,7 @@ class DexConverter(object):
       if m.code:
         x.register_count = m.code.registers_size
       item.methods.append(x)
-      manager.method_item_list[item.type + method_name + proto_shorty] = x
+      manager.method_item_list[item.type + method_name + ','.join(str(x) for x in self.parameters] = x
       manager.proto_item_list[return_type + "".join(parameter)] = x.create_proto()
     return item
 
@@ -324,9 +324,8 @@ class CodeItemReader(object):
       for t in code_item.tries:
         start = t.start_addr
         end = t.start_addr + t.insn_count - 1
-        catch_handlers = t.handlers
-
-        for type_addr_pair in catch_handlers.handlers:
+        catch_handler = t.handler
+        for type_addr_pair in catch_handlers.type_addr_pairs:
           type_idx, addr = type_addr_pair.type_idx, type_addr_pair.addr
           type_addrs.append(editor.DexHandlerTypeAddr(self.manager.type_list[type_idx],type_addr_pair.addr))
         catch_all_addr = catch_handlers.catch_all_addr
