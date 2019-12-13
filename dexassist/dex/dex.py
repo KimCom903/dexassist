@@ -912,7 +912,7 @@ class DexManager(object):
         type_info = self.type_list[parameter_type_idx]
         parameter.append(type_info)
     try:
-      return self.method_item_list[target.class_idx] + method_name + ','.join(str(x) for x in self.parameters]
+      return self.method_item_list[target.class_idx] + method_name + ','.join([str(x) for x in self.parameters])
     except:
       m = self.create_method(self.type_list[self.method_list[index].class_idx], method_name, proto_shorty, parameter, return_type)
       self.externel_type_list.update(parameter)
