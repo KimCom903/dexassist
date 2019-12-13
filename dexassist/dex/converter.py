@@ -1,12 +1,8 @@
-try:
-  from dexassist import normalize
-  from dexassist.dex import dex
-  from dexassist.bytecodes import editor
-  from dexassist.bytecodes import base
-except:
-  import normalize
-  from dex import dex
-  from bytecodes import editor, base
+
+from dexassist import normalize
+from dexassist.dex import dex
+from dexassist.bytecodes import editor
+from dexassist.bytecodes import base
   
 
 class DexConverter(object):
@@ -142,7 +138,7 @@ class DexConverter(object):
       if m.code:
         x.register_count = m.code.registers_size
       item.methods.append(x)
-      manager.method_item_list[item.type + method_name + proto_shorty] = x
+      manager.method_item_list[item.type + method_name + ','.join([str(z) for z in x.parameters])] = x
       manager.proto_item_list[return_type + "".join(parameter)] = x.create_proto()
     
     method_idx = 0
@@ -174,7 +170,7 @@ class DexConverter(object):
       if m.code:
         x.register_count = m.code.registers_size
       item.methods.append(x)
-      manager.method_item_list[item.type + method_name + proto_shorty] = x
+      manager.method_item_list[item.type + method_name + ','.join([str(z) for z in x.parameters])] = x
       manager.proto_item_list[return_type + "".join(parameter)] = x.create_proto()
     return item
 
@@ -319,13 +315,13 @@ class CodeItemReader(object):
 
       self.opcodes.append(instruction)
 
-    type_addrs = []
+ 
     if code_item.tries:
       for t in code_item.tries:
+        type_addrs = []
         start = t.start_addr
         end = t.start_addr + t.insn_count - 1
         catch_handlers = t.handlers
-
         for type_addr_pair in catch_handlers.handlers:
           type_idx, addr = type_addr_pair.type_idx, type_addr_pair.addr
           type_addrs.append(editor.DexHandlerTypeAddr(self.manager.type_list[type_idx],type_addr_pair.addr))
