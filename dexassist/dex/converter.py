@@ -297,6 +297,7 @@ class CodeItemReader(object):
       opcode = stream.peek() & 0xff
 
       instruction = base.OpcodeFactory.from_stream(opcode, self.editor.manager, stream)
+
       if instruction.op == 0x26: # fill-array-data
         payload = base.FillArrayDataPayload(instruction)
         payload.read(stream, instruction.BBBBBBBB + instruction.base_offset)

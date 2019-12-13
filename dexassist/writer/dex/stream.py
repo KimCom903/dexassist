@@ -28,6 +28,8 @@ class BaseWriteStream(object):
     self.position = base_offset
     self.buf = buf
 
+  def at(self, offset):
+    self.position = offset
   def count_bytes(self, value, is_short_length):
     result = 0
     length = len(value)
@@ -198,6 +200,8 @@ class InstructionWriter(BaseWriteStream):
     self.stream = code_writer
     self.manager = section_manager
 
+  def write_byte_array(self, arr):
+    self.stream.write_byte_array(arr)
   def write(self, ins):
     ins.write_byte_stream(self.stream, self.manager)
 
