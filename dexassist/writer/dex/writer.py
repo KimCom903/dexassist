@@ -12,6 +12,9 @@ from .stream import OutputStream
 from .stream import TempOutputStream
 from .stream import InstructionWriter
 from dexassist.normalize import DexValue, DexMethod, DexField
+import hashlib
+import zlib
+
 NO_INDEX = -1
 NO_OFFSET = 0
 
@@ -488,11 +491,15 @@ class DexWriter(object):
     #header_writer.close()
     #index_writer.close()
     #offset_writer.close()
+
+    self.update_signature(buf)
+    self.update_check_sum(buf)
+
     with open('test.dex', 'wb') as f:
       f.write(buf)
 
-    #self.update_signature(buf)
-    #self.update_check_sum(buf)
+
+
   def get_section(self, key):
     return self.manager.get_section(key)
 
@@ -1088,11 +1095,17 @@ class DexWriter(object):
       offset = 0
     writer.write_int(offset)
 
-  def update_signature(self):
-    pass
+  def update_signature(self, buf):
+    sha = hashlib.sha1()
+    sha.update(buf[32:])
+    sig = sha.hexdigest()
+    
+    
 
-  def update_checksum(self):
-    pass
+  def update_check_sum(self, buf):
+    checksum = zlib.adler32(buf[12:])
+    
+
   def should_create_empty_annotation_set(self):
     return False # we don't make dex, just rebuild dex so assert dex is always valid.
     # if opcodes.api < 17, app will be crash before android 4.2
