@@ -101,7 +101,8 @@ class TypeSection(Section):
     if self.frozen:
       raise Exception('section is frozen')
 
-    if dex_type in self.type_map: return self.type_map[dex_type]
+    if dex_type in self.type_map:
+      return
 
     self.type_map[dex_type] = self.index # set id
     self.type_reverse_map[self.index] = dex_type

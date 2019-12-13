@@ -237,7 +237,6 @@ class Instruction20t(Instruction):
   
   def write_byte_stream(self, stream, manager):
     self.write_op(stream, 0, self.op)
-    stream.write_ushort(0x00 | (self.op & 0xff))
     stream.write_ushort(self.AAAA)
     return len(self)
   
@@ -775,7 +774,7 @@ class Instruction4rcc(Instruction):
     return 8
 
   def get_item(self):
-    return [self.BBBB, self,HHHH]
+    return [self.BBBB, self.HHHH]
 
 
 # AA|op BBBBlo BBBB BBBB BBBBhi	51l	op vAA, #+BBBBBBBBBBBBBBBB
