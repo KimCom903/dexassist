@@ -38,6 +38,8 @@ def translate_operand_type(opcode):
   return OPCODE_TABLE[opcode][2]
 class Instruction(object):
 
+  def need_access_instructions(self):
+    return False
   def write_op(self, stream, left, right):
     val = (left << 8) & 0xff00
     val |= right & 0xff
@@ -528,6 +530,27 @@ class Instruction31i(Instruction):
 class Instruction31t(Instruction31i):
   def as_string(self):
     return '{} v{:02x}, +{:08x}'.format(self.get_opcode_string(), self.AA, self.BBBBBBBB)
+  
+  def need_access_instructions(self):
+    return True
+
+
+  def from_byte(self, stream):
+    temp = stream.read()
+    self.AA = temp >> 8 & 0xff
+    self.op = temp & 0xff
+    self.BBBBlo = stream.read()
+    self.BBBBhi = stream.read()
+    self.BBBBBBBB = self.BBBBhi << 16 | self.BBBBlo
+    
+
+
+  def write_byte_stream(self, stream, manager):
+    self.write_op(stream, self.AA, self.op)
+    stream.write_uint(self.BBBBBBBB)
+    #payload_length = self.payload.write_at(stream, self.BBBBBBBB)
+    return len(self)# + payload_length
+
 
 # AA|op BBBBlo BBBBhi   31c	op vAA, string@BBBBBBBB
 class Instruction31c(Instruction31i):
@@ -810,12 +833,19 @@ class InstructionPayload(object):
 
   def get_size(self):
     raise Exception('not implemented')
+  def __len__(self):
+    return self.get_size()
+
   def init(self):
     pass
   def read_int(self, stream):
     ret = stream.read()
     ret |= stream.read() << 16
     return ret
+  def write_at(self, stream):
+    raise Exception('not implemented')
+
+
 class PackedSwitchPayload(InstructionPayload):
   def init(self):
     self.ident = 0x0100
@@ -842,6 +872,19 @@ class PackedSwitchPayload(InstructionPayload):
   def get_size(self):
     return self.read_size
 
+  def write_at(self, stream, offset):
+    #old_offset = stream.position
+    #stream.at(offset)
+    stream.write_ushort(self.ident)
+    stream.write_ushort(len(self.targets))
+    stream.write_uint(self.first_key)
+    for x in range(len(self.targets)):
+      stream.write_uint(x)
+
+    #stream.at(old_offset)
+    return 2 + 2 + 4 + len(self.targets) * 4
+
+
 class SparseSwitchPayload(InstructionPayload):
   def init(self):
     self.ident = 0x0300
@@ -865,6 +908,19 @@ class SparseSwitchPayload(InstructionPayload):
   def get_size(self):
     return self.read_size
 
+  def write_at(self, stream, offset):
+    #old_offset = stream.position
+    #stream.at(offset)
+    stream.write_ushort(self.ident)
+    stream.write_ushort(len(self.targets))
+    for x in range(len(self.keys)):
+      stream.write_uint(x)
+
+    for x in range(len(self.targets)):
+      stream.write_uint(x)
+
+    #stream.at(old_offset)
+    return 2 + 2 + len(self.targets) * 8
 class FillArrayDataPayload(InstructionPayload):
   def init(self):
     self.ident = 0x0300
@@ -877,7 +933,8 @@ class FillArrayDataPayload(InstructionPayload):
     old_offset = stream.offset
     stream.at(offset)
     self.ident = stream.read()
-    #print('ident : {:04x}'.format(self.ident))
+    print('ident : {:04x}'.format(self.ident))
+    
     assert(self.ident == 0x0300)
     self.element_width = stream.read()
     self.size = self.read_int(stream)
@@ -900,6 +957,16 @@ class FillArrayDataPayload(InstructionPayload):
   def get_size(self):
     return self.read_size
 
+
+  def write_at(self, stream, offset):
+    #old_offset = stream.position
+    #stream.at(offset)
+    stream.write_ushort(self.ident)
+    stream.write_ushort(self.element_width)
+    stream.write_uint(self.size)
+    stream.write_arrays(self.data)
+    #stream.at(old_offset)
+    return 2 + 2 + 4 + len(self.data)
 
 class OpcodeFactory(object):
   @staticmethod
