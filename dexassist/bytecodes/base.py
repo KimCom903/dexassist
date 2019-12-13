@@ -132,7 +132,7 @@ class Instruction00x(Instruction):
     pass
   
   def write_byte_stream(self, stream, manager):
-    pass
+    raise Exception('Instruction00x instruction cannot be writed')
   
   def as_string(self):
     return 'N/A'
@@ -437,7 +437,7 @@ class Instruction22c(Instruction22t):
 
  
   def get_item(self):
-    return self.CCCC    
+    return self.CCCC  
 
 # B|A|op CCCC   22cs    op vA, vB, fieldoff@CCCC
 # not used instruction
@@ -870,7 +870,7 @@ class PackedSwitchPayload(InstructionPayload):
     self.read_size = stream.offset - offset
     stream.at(old_offset)
   def get_size(self):
-    return self.read_size
+    return 2 + 2 + 4 + self.size * 4
 
   def write_at(self, stream, offset):
     #old_offset = stream.position
@@ -883,7 +883,8 @@ class PackedSwitchPayload(InstructionPayload):
 
     #stream.at(old_offset)
     return 2 + 2 + 4 + len(self.targets) * 4
-
+  def get_code_unit_count(self):
+    return (self.size * 2) + 4
 
 class SparseSwitchPayload(InstructionPayload):
   def init(self):
@@ -906,7 +907,7 @@ class SparseSwitchPayload(InstructionPayload):
     self.read_size = stream.offset - offset
     stream.at(old_offset)
   def get_size(self):
-    return self.read_size
+    return 2 + 2 + self.size * 8
 
   def write_at(self, stream, offset):
     #old_offset = stream.position
@@ -921,6 +922,9 @@ class SparseSwitchPayload(InstructionPayload):
 
     #stream.at(old_offset)
     return 2 + 2 + len(self.targets) * 8
+
+  def get_code_unit_count(self):
+    return (self.size * 4) + 2
 class FillArrayDataPayload(InstructionPayload):
   def init(self):
     self.ident = 0x0300
@@ -955,8 +959,9 @@ class FillArrayDataPayload(InstructionPayload):
     self.read_size = stream.offset - offset
     stream.at(old_offset)
   def get_size(self):
-    return self.read_size
-
+    return 2 + 2 + 4 + len(self.data)
+  def get_code_unit_count(self):
+    return int((self.size * self.element_width + 1) / 2 + 4)
 
   def write_at(self, stream, offset):
     #old_offset = stream.position

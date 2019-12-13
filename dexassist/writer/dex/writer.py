@@ -567,10 +567,15 @@ class DexWriter(object):
     out_param_count = 0
     code_unit_count = 0
     param_count = 0
+    payloads_map = {}
     for ins in instructions:
       code_unit_count += ins.get_code_unit_count() #.get_code_unit_count()
       if ins.op in [0x26, 0x2b, 0x2c]:
-        code_unit_count += len(ins.payload)
+        print('payload offsets are {}'.format(ins.BBBBBBBB))
+        print('update offset to {}'.format(code_unit_count))
+        ins.BBBBBBBB = code_unit_count
+        code_unit_count += ins.payload.get_code_unit_count()
+        payloads_map[ins.BBBBBBBB] = ins.payload
 
       if ins.ref_type == INSTRUCT_TYPE_METHOD:
         method_ref = ins.ref
@@ -595,10 +600,16 @@ class DexWriter(object):
     for ins in instructions:
       ins_writer.write(ins)
       code_offset += len(ins)#.en(get_code_units()
-    for ins in instructions:
-      if ins.op in [0x26, 0x2b, 0x2c]:
-        print('payload offset : {}'.format(ins_writer.stream.position))
-        code_offset += ins.payload.write_at(ins_writer, -1)
+    for payload_offset in payloads_map:
+        print('write payload at code offset {}'.format(code_offset))
+        if payload_offset * 2 > code_offset:
+          raise Exception("code offset not updated")
+
+        payload = payloads_map[payload_offset]
+
+        code_offset += payload.write_at(ins_writer, -1)
+
+    print('code offset : {}'.format(code_offset))
     if len(try_blocks) > 0:
       #code_writer.align() # padding
       if code_unit_count % 2 == 1: code_writer.write_ushort(0x0000)
