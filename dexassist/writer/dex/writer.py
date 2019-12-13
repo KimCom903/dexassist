@@ -162,6 +162,7 @@ class SectionManager(object):
         self.add_encoded_value(v)
     elif value.get_type() == VALUE_TYPE_ANNOTATION:
       self.get_section(SECTION_TYPE).add_item(value.value.type)
+      self.get_section(SECTION_STRING).add_item(value.value.type)
       for elem in value.value.elements:
         self.get_section(SECTION_STRING).add_item(elem[0])
         self.add_encoded_value(elem[1])
@@ -169,10 +170,13 @@ class SectionManager(object):
       self.get_section(SECTION_STRING).add_item(value.value)
     elif value.get_type() == VALUE_TYPE_TYPE:
       self.get_section(SECTION_TYPE).add_item(value.value)
+      self.get_section(SECTION_STRING).add_item(value.value)
     elif value.get_type() == VALUE_TYPE_ENUM or value.get_type() == VALUE_TYPE_FIELD:
       self.get_section(SECTION_FIELD).add_item(value.value)
       self.get_section(SECTION_TYPE).add_item(value.value.type)
       self.get_section(SECTION_TYPE).add_item(value.value.clazz) # for external field
+      self.get_section(SECTION_STRING).add_item(value.value.type)
+      self.get_section(SECTION_STRING).add_item(value.value.clazz) 
     elif value.get_type() == VALUE_TYPE_METHOD:
       self.get_section(SECTION_METHOD).add_item(value.value)
     elif value.get_type() == VALUE_TYPE_METHOD_HANDLE:
@@ -290,6 +294,7 @@ class SectionManager(object):
   def get_data_section_offset(self):
     ret = 0x70 # header_item_size
     ret += self.get_section(SECTION_STRING).get_item_count() * STRING_ID_ITEM_SIZE
+    print("len type: {}".format(self.get_section(SECTION_TYPE).get_item_count()))
     ret += self.get_section(SECTION_TYPE).get_item_count() * TYPE_ID_ITEM_SIZE
     ret += self.get_section(SECTION_PROTO).get_item_count() * PROTO_ID_ITEM_SIZE
     ret += self.get_section(SECTION_FIELD).get_item_count() * FIELD_ID_ITEM_SIZE
@@ -349,6 +354,7 @@ class SectionManager(object):
         self.get_section(SECTION_STRING).add_item(item)
       elif code.ref_type == INSTRUCT_TYPE_TYPE:
         self.get_section(SECTION_TYPE).add_item(item)
+        self.get_section(SECTION_STRING).add_item(item)
       elif code.ref_type == INSTRUCT_TYPE_FIELD:
         self.get_section(SECTION_FIELD).add_item(item)
       elif code.ref_type == INSTRUCT_TYPE_METHOD:
@@ -359,7 +365,10 @@ class SectionManager(object):
     tries = method.get_try_blocks()
     for tryblock in tries:
       for handler in tryblock.catch_handlers:
-        self.get_section(SECTION_TYPE).add_item(handler.exception_type)
+        if handler.exception_type:
+          self.get_section(SECTION_TYPE).add_item(handler.exception_type)
+          self.get_section(SECTION_STRING).add_item(handler.exception_type)
+
     
 
 
@@ -584,55 +593,54 @@ class DexWriter(object):
       ins_writer.write(ins)
       code_offset += len(ins)#.en(get_code_units()
     if len(try_blocks) > 0:
+      #code_writer.align() # padding
       if code_unit_count % 2 == 1: code_writer.write_ushort(0x0000)
+
       handler_map = dict()
-      print(try_blocks)
       for try_block in try_blocks:
         print('process try block : {}'.format(try_block))
         print('process try block : {}'.format(try_block.get_exception_handlers()))
         key = str(try_block)
-        for it in try_block.get_exception_handlers():
-          key += str(it)
         handler_map[key] = 0
       print('handler map :')
-      print(handler_map)
       ehbuf.write_uleb(len(handler_map))
 
-    for try_block in try_blocks:
-      code_writer.write_int(try_block.get_start_addr())
-      code_writer.write_ushort(try_block.get_code_count())
+      for try_block in try_blocks:
+        code_writer.write_int(try_block.get_start_addr())
+        code_writer.write_ushort(try_block.get_code_count())
 
-      if len(try_block.get_exception_handlers()) == 0:
-        raise Exception("try block has no exception handlers")
+        if len(try_block.get_exception_handlers()) == 0:
+          raise Exception("try block has no exception handlers")
 
 
-      key = str(try_block)
-      for it in try_block.get_exception_handlers():
-        key += str(it)
-      offset = handler_map[key]
-      if offset != 0:
+        key = str(try_block)
+        offset = handler_map[key]
+        if offset != 0:
+          code_writer.write_ushort(offset)
+          return
+        offset = ehbuf.get_position()
+        handler_map[key] = offset
         code_writer.write_ushort(offset)
-        return
-      offset = ehbuf.get_position()
-      handler_map[key] = offset
-      code_writer.write_ushort(offset)
 
-      eh_size = len(try_block.get_exception_handlers())
-      eh_last = try_block.get_exception_handlers()[-1]
-      if eh_last.get_exception_type() is None:
-        eh_size = -eh_size + 1
+        eh_size = len(try_block.get_exception_handlers())
+        eh_last = try_block.get_exception_handlers()[-1]
+        if eh_last.get_exception_type() is None:
+          eh_size = -eh_size + 1
       
-      ehbuf.write_sleb(eh_size)
-      for eh in try_block.get_exception_handlers():
-        exception_type = eh.get_exception_type() ## need define handler_class, now, handler is tuple, there is no function
-        code_addr = eh.get_handler_addr() 
-        if exception_type is not None:
-          # regular
-          ehbuf.write_uleb(self.get_section(SECTION_TYPE).get_item_index(exception_type))
-          ehbuf.write_uleb(code_addr)
-        else:
-          #catch(Throwable)
-          ehbuf.write_uleb(code_addr)
+        ehbuf.write_sleb(eh_size)
+        for eh in try_block.get_exception_handlers():
+          exception_type = eh.get_exception_type() ## need define handler_class, now, handler is tuple, there is no function
+          code_addr = eh.get_handler_addr() 
+          if exception_type is not None:
+              # regular
+            ehbuf.write_uleb(self.get_section(SECTION_TYPE).get_item_index(exception_type))
+            ehbuf.write_uleb(code_addr)
+          else:
+            #catch(Throwable)
+            ehbuf.write_uleb(code_addr)
+      print(handler_map)
+      print(len(handler_map))
+        
     if ehbuf.get_position() > 0:
       ehbuf.write_to(code_writer)
     return code_item_offset

@@ -315,13 +315,14 @@ class CodeItemReader(object):
 
       self.opcodes.append(instruction)
 
-    type_addrs = []
+ 
     if code_item.tries:
       for t in code_item.tries:
+        type_addrs = []
         start = t.start_addr
         end = t.start_addr + t.insn_count - 1
-        catch_handler = t.handler
-        for type_addr_pair in catch_handlers.type_addr_pairs:
+        catch_handlers = t.handlers
+        for type_addr_pair in catch_handlers.handlers:
           type_idx, addr = type_addr_pair.type_idx, type_addr_pair.addr
           type_addrs.append(editor.DexHandlerTypeAddr(self.manager.type_list[type_idx],type_addr_pair.addr))
         catch_all_addr = catch_handlers.catch_all_addr

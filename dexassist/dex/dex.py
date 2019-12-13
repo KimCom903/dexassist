@@ -695,6 +695,7 @@ class TryItem(DexItem):
     'insn_count': USHORT,
     'handler_off': USHORT
   }
+  
 class EncodedCatchHandlerList(DexItem):
   descriptor = {
     'size': ULEB
@@ -706,13 +707,13 @@ class EncodedCatchHandler(DexItem):
     'size': SLEB
   }
   def parse_remain(self):
-    self.type_addr_pairs = []
+    self.handlers = []
     self.catch_all_addr = -1
     #print('encoded catch handler size : {}'.format(self.size))
 
     for x in range(abs(self.size)):
       item = EncodedTypeAddrpair(self.manager, self.root_stream, self.base_index + self.read_size)
-      self.type_addr_pairs.append(item)
+      self.handlers.append(item)
       self.read_size += item.read_size
     if self.size <= 0:
       item = self.root_stream.read_uleb(self.base_index + self.read_size)
@@ -912,8 +913,10 @@ class DexManager(object):
         type_info = self.type_list[parameter_type_idx]
         parameter.append(type_info)
     try:
-      return self.method_item_list[target.class_idx] + method_name + ','.join([str(x) for x in self.parameters])
+      return self.method_item_list[self.type_list[target.class_idx] + \
+        method_name + ','.join([str(x) for x in self.parameters])]
     except:
+      
       m = self.create_method(self.type_list[self.method_list[index].class_idx], method_name, proto_shorty, parameter, return_type)
       self.externel_type_list.update(parameter)
       self.externel_proto_list.add(m.create_proto())
