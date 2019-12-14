@@ -1,6 +1,7 @@
 import zipfile, os
 
 from dexassist.dex import converter, dex
+from dexassist.bytecodes import base
 from dexassist.writer import dex as writer_dex
 from dexassist.writer.dex.writer import DexWriter
 from dexassist.writer.dex.stream import OutputStream
@@ -12,12 +13,9 @@ def print_dex(dex_path):
   header = dex.HeaderItem(manager, stream, 0)
   mdex = converter.DexConverter().get_dex(header, manager)
   for clazz in mdex.classes:
-    for m in clazz.methods:
-      print(m.clazz.name + m.name)
-      if m.editor:
-        print(len(m.editor.tries))
-        for tryitem in m.editor.tries:
-          print("count except_type: {}".format(len(tryitem.catch_handlers)))
+    print(clazz.name)
+
+adsclazz = []
 
 def duplicate_dex(dex_path):
   with open(dex_path, 'rb') as f:
@@ -26,11 +24,38 @@ def duplicate_dex(dex_path):
   stream = dex.StreamReader(x, manager)
   header = dex.HeaderItem(manager, stream, 0)
   mdex = converter.DexConverter().get_dex(header, manager)
+  for clazz in mdex.classes:
+    if clazz.name.find("google") >= 0:
+      adsclazz.append(clazz)
+      continue
+    adsmethod = []
+    for m in clazz.methods:
+      if m.name == "setupAds":
+        print(m.name)
+        adsmethod.append(m)
+        continue
+      if m.editor:
+        for opcode in m.editor.opcode_list:
+          if opcode.op == 0x70 or opcode.op == 0x76:
+            if opcode.BBBB.name.find('setup') >= 0:
+              m.editor.opcode_list.remove(opcode)
+              nop = base.Instruction10x(manager)
+              nop.op = 0
+              nop.high = 0
+              for _ in range(3):
+                m.editor.opcode_list.append(nop)
+    for m in adsmethod:
+      clazz.methods.remove(m)
+  for clazz in adsclazz:
+    mdex.classes.remove(clazz)
+  
   buf = bytearray()
   stream = OutputStream(buf,0)
   #mdex.write(stream)
   p = DexWriter(mdex)
   p.write(stream)
+
+
 
 def remake(src, dst):
   with zipfile.ZipFile(src, 'r') as s:
@@ -76,7 +101,6 @@ def main():
   #print_dex('test_binary/classes_mid.dex')
   #print_dex('test_binary/more_large.dex')
   duplicate_dex('test_binary/classes_mid.dex')
-  #duplicate_dex('test_binary/classes.dex')
   #duplicate_dex('test_binary/classes.dex')
   #duplicate_dex('test_binary/large.dex')
   #remake_apk('sample_apk/sample1.apk', 'out.apk')
