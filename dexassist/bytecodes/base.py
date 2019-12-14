@@ -220,11 +220,12 @@ class Instruction10x(Instruction):
     if self.high == 0:
       return 2
     if self.high == 1:
-      return int((self.size * 2 + 6) * 2)
+      return int((self.size * 2) + 4) * 2
     if self.high == 2:
-      return int(((self.size * 4) + 4) * 2)
+      return int(((self.size * 4) + 2)) * 2
     if self.high == 3:
-      return int(((self.size * self.element_width + 1) / 2 + 4))
+      return int(((self.size * self.element_width + 1) / 2 + 4)) * 2
+
 # B|A|op 	12x 	op vA, vB
 class Instruction12x(Instruction):
   def as_byte_stream(self):
