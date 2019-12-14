@@ -161,6 +161,7 @@ class OutputStream(BaseWriteStream):
     zeros = (-self.get_position()) & 3
     if zeros > 0:
       self.write_byte_array(bytearray(zeros))
+    self.write_byte_array(bytearray(4))
 
 
 class TempOutputStream(BaseWriteStream):

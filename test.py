@@ -41,6 +41,12 @@ def remake(src, dst):
         buf = s.read(x.filename)
         d.writestr(x, buf)
 
+def baksmali(dex_path):
+  os.system('java -jar baksmali-2.3.4.jar d {}'.format(dex_path))
+
+def smali(out_path):
+  os.system('java -jar smali-2.3.4.jar a {} --out test.dex'.format(out_path))
+
 def remake_apk(apk_path, out_apk_path):
   with zipfile.ZipFile(apk_path, 'r') as f:
     x = f.read('classes.dex')
@@ -54,6 +60,8 @@ def remake_apk(apk_path, out_apk_path):
   #mdex.write(stream)
   p = DexWriter(mdex)
   p.write(stream)
+  baksmali('test.dex')
+  smali('out')
   with open('test.dex', 'rb') as f:
     buf = f.read()
   remake(apk_path, out_apk_path)
@@ -67,10 +75,10 @@ def remake_apk(apk_path, out_apk_path):
 def main():
   #print_dex('test_binary/classes_mid.dex')
   #print_dex('test_binary/more_large.dex')
-  #duplicate_dex('test_binary/classes_mid.dex')
+  duplicate_dex('test_binary/classes_mid.dex')
   #duplicate_dex('test_binary/classes.dex')
   #duplicate_dex('test_binary/classes.dex')
   #duplicate_dex('test_binary/large.dex')
-  remake_apk('sample_apk/sample1.apk', 'out.apk')
+  #remake_apk('sample_apk/sample1.apk', 'out.apk')
 if __name__ == '__main__':
   main()

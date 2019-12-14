@@ -297,7 +297,6 @@ class SectionManager(object):
   def get_data_section_offset(self):
     ret = 0x70 # header_item_size
     ret += self.get_section(SECTION_STRING).get_item_count() * STRING_ID_ITEM_SIZE
-    print("len type: {}".format(self.get_section(SECTION_TYPE).get_item_count()))
     ret += self.get_section(SECTION_TYPE).get_item_count() * TYPE_ID_ITEM_SIZE
     ret += self.get_section(SECTION_PROTO).get_item_count() * PROTO_ID_ITEM_SIZE
     ret += self.get_section(SECTION_FIELD).get_item_count() * FIELD_ID_ITEM_SIZE
@@ -457,14 +456,27 @@ class DexWriter(object):
     buf = bytearray()
     header_writer = OutputStream(buf, 0)
     index_writer = OutputStream(buf, SIZE_HEADER_ITEM)
+    print('data section offset : ' + str(data_section_offset))
     offset_writer = OutputStream(buf, data_section_offset)
     
     self.write_strings(index_writer, offset_writer)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_types(index_writer)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_type_lists(offset_writer)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_protos(index_writer)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_fields(index_writer)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_methods(index_writer)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
 
     method_handle_writer = OutputStream(buf, index_writer.get_position() + 
       manager.get_section(SECTION_CLASS).get_item_count() * CLASS_DEF_ITEM_SIZE +
@@ -475,18 +487,35 @@ class DexWriter(object):
     method_handle_writer.close()
 
     self.write_encoded_arrays(offset_writer)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
+
     call_site_writer = OutputStream(buf, index_writer.get_position() + 
       manager.get_section(SECTION_CLASS).get_item_count() * CLASS_DEF_ITEM_SIZE)
     self.write_call_sites(call_site_writer)
     call_site_writer.close()
 
     self.write_annotations(offset_writer)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_annotation_sets(offset_writer)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_annotation_set_refs(offset_writer, dex_pool)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_annotation_directories(offset_writer, dex_pool)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_debug_and_code_items(offset_writer, TempOutputStream(bytearray()))
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_classes(index_writer, offset_writer)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_map_item(offset_writer)
+    offset_writer.align()
+    assert(offset_writer.position % 4 == 0)
     self.write_header(header_writer, data_section_offset, len(buf))
     #header_writer.close()
     #index_writer.close()
@@ -574,15 +603,8 @@ class DexWriter(object):
     out_param_count = 0
     code_unit_count = 0
     param_count = 0
-    payloads_map = {}
     for ins in instructions:
       code_unit_count += ins.get_code_unit_count() #.get_code_unit_count()
-      if ins.op in [0x26, 0x2b, 0x2c]:
-        print('payload offsets are {}'.format(ins.BBBBBBBB))
-        print('update offset to {}'.format(code_unit_count))
-        ins.BBBBBBBB = code_unit_count
-        code_unit_count += ins.payload.get_code_unit_count()
-        payloads_map[ins.BBBBBBBB] = ins.payload
 
       if ins.ref_type == INSTRUCT_TYPE_METHOD:
         method_ref = ins.ref
@@ -607,16 +629,7 @@ class DexWriter(object):
     for ins in instructions:
       ins_writer.write(ins)
       code_offset += len(ins)#.en(get_code_units()
-    for payload_offset in payloads_map:
-        print('write payload at code offset {}'.format(code_offset))
-        if payload_offset * 2 > code_offset:
-          raise Exception("code offset not updated")
 
-        payload = payloads_map[payload_offset]
-
-        code_offset += payload.write_at(ins_writer, -1)
-
-    print('code offset : {}'.format(code_offset))
     if len(try_blocks) > 0:
       #code_writer.align() # padding
       if code_unit_count % 2 == 1: code_writer.write_ushort(0x0000)
@@ -690,6 +703,7 @@ class DexWriter(object):
       num_items += 1
     if self.num_class_data_items > 0:
       num_items += 1
+    #return 2
     return num_items - 1
 
 
@@ -700,6 +714,7 @@ class DexWriter(object):
     offset_writer.write_int(num_items)
 
     self.write_map_item_object(offset_writer, HEADER_ITEM, 1, 0)
+    
     self.write_map_item_object(offset_writer, STRING_ID_ITEM, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
     self.write_map_item_object(offset_writer, TYPE_ID_ITEM, self.get_section(SECTION_TYPE).size(), self.type_section_offset)
     self.write_map_item_object(offset_writer, PROTO_ID_ITEM, self.get_section(SECTION_PROTO).size(), self.proto_section_offset)
@@ -720,6 +735,7 @@ class DexWriter(object):
     self.write_map_item_object(offset_writer, DEBUG_INFO_ITEM, self.num_debug_info_items, self.debug_section_offset)
     self.write_map_item_object(offset_writer, CODE_ITEM, self.num_code_item_items, self.code_section_offset)
     self.write_map_item_object(offset_writer, CLASS_DATA_ITEM, self.num_class_data_items, self.class_data_section_offset)
+    
     self.write_map_item_object(offset_writer, MAP_LIST, 1, self.map_section_offset)
 
   def write_map_item_object(self, offset_writer, item_type, size, offset):

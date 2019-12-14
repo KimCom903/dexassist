@@ -277,7 +277,11 @@ class CodeStream(object):
   @property
   def offset(self):
     return self.index
-
+  def read_int(self):
+    x = self.read()
+    y = self.read()
+    print('read_int return is 0x{:04x}{:04x}'.format(y, x))
+    return y << 16 | x
   def at(self, offset):
     self.index = offset
 
@@ -297,6 +301,7 @@ class CodeItemReader(object):
       opcode = stream.peek() & 0xff
 
       instruction = base.OpcodeFactory.from_stream(opcode, self.editor.manager, stream)
+      """
 
       if instruction.op == 0x26: # fill-array-data
         payload = base.FillArrayDataPayload(instruction)
@@ -313,7 +318,7 @@ class CodeItemReader(object):
         payload.read(stream, instruction.BBBBBBBB + instruction.base_offset)
         payload_size += payload.get_size()
         instruction.payload = payload
-
+      """
       self.opcodes.append(instruction)
 
  
