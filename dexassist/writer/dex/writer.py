@@ -580,11 +580,15 @@ class DexWriter(object):
         code_item_offset = self.write_code_item(code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset)
         if code_item_offset != NO_OFFSET:
           method.code_item_offset = code_item_offset + self.code_section_offset
+        else:
+          method.code_item_offset = 0
+          print('code item offset is NO_OFFSET for method {}.{}'.format(method.clazz.type, method.name))
           #code_offsets.append(CodeItemOffset(method, code_item_offset))
     code_writer.write_to(offset_writer)
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
-    print('write code item for method {} {}'.format(method.clazz.type, method.name))
+    if not instructions and debug_item_offset == 0: return NO_OFFSET
+    #print('write code item for method {} {}'.format(method.clazz.type, method.name))
     self.num_code_item_items += 1
     code_writer.align()
     code_item_offset = code_writer.get_position()
@@ -704,7 +708,7 @@ class DexWriter(object):
     if self.num_class_data_items > 0:
       num_items += 1
     #return 2
-    return num_items - 1
+    return num_items
 
 
   def write_map_item(self, offset_writer):
@@ -1151,5 +1155,5 @@ class DexWriter(object):
     
 
   def should_create_empty_annotation_set(self):
-    return False # we don't make dex, just rebuild dex so assert dex is always valid.
+    return True # we don't make dex, just rebuild dex so assert dex is always valid.
     # if opcodes.api < 17, app will be crash before android 4.2
