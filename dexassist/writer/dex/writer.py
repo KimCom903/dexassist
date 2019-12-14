@@ -16,7 +16,7 @@ import hashlib
 import zlib
 
 NO_INDEX = -1
-NO_OFFSET = 0
+NO_OFFSET = -1
 
 INSTRUCT_TYPE_METHOD = 2
 
@@ -578,16 +578,21 @@ class DexWriter(object):
         #)
         debug_item_offset = 0
         code_item_offset = self.write_code_item(code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset)
-        if code_item_offset != NO_OFFSET:
+        if code_item_offset != -1:
           method.code_item_offset = code_item_offset + self.code_section_offset
         else:
+          print('{}.{} code_Offset is {}'.format(method.clazz.type, method.name, code_item_offset))
           method.code_item_offset = 0
-          print('code item offset is NO_OFFSET for method {}.{}'.format(method.clazz.type, method.name))
           #code_offsets.append(CodeItemOffset(method, code_item_offset))
     code_writer.write_to(offset_writer)
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
-    if not instructions and debug_item_offset == 0: return NO_OFFSET
+    if 'BuildConfig' in method.clazz.type: print('{} {}'.format(method.name, instructions))
+    if instructions is None and debug_item_offset == 0: return -1
+    if len(instructions) == 0 and debug_item_offset == 0: return -1
+    
+    if 'BuildConfig' in method.clazz.type: print('buildconfig will be writed')
+
     #print('write code item for method {} {}'.format(method.clazz.type, method.name))
     self.num_code_item_items += 1
     code_writer.align()
@@ -659,7 +664,7 @@ class DexWriter(object):
         offset = handler_map[key]
         if offset != 0:
           code_writer.write_ushort(offset)
-          return
+          raise Exception('offset != 0')
         offset = ehbuf.get_position()
         handler_map[key] = offset
         code_writer.write_ushort(offset)
@@ -1157,3 +1162,21 @@ class DexWriter(object):
   def should_create_empty_annotation_set(self):
     return True # we don't make dex, just rebuild dex so assert dex is always valid.
     # if opcodes.api < 17, app will be crash before android 4.2
+  
+  def verify_dex(self, buf):
+    pass
+
+  def check_intra_section(self, map_list):
+    offset = 0
+    count = len(map_list)
+    for item in map_list:
+      pass
+
+    while count != 0:
+      item = 0
+
+      current_offset = offset
+      section_offset = 0
+
+
+      count -= 1
