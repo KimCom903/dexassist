@@ -69,6 +69,7 @@ def main():
   #print_dex('test_binary/more_large.dex')
   #duplicate_dex('test_binary/classes_mid.dex')
   #duplicate_dex('test_binary/classes.dex')
+  #duplicate_dex('test_binary/classes.dex')
   #duplicate_dex('test_binary/large.dex')
   remake_apk('sample_apk/sample1.apk', 'out.apk')
 if __name__ == '__main__':
