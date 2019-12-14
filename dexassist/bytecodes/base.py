@@ -1,3 +1,5 @@
+import struct
+USHORT_FMT = '<H'
 ## define
 INSTRUCT_TYPE_STRING = 0
 INSTRUCT_TYPE_TYPE = 1
@@ -144,9 +146,27 @@ class Instruction00x(Instruction):
 class Instruction10x(Instruction):
   def as_byte_stream(self):
     pass
-  
+  def write_uint(self, stream, value):
+    stream.write_uint(value)
+  def write_ushort(self, stream, value):
+    stream.write_ushort(value)
   def write_byte_stream(self, stream, manager):
-    self.write_op(stream, 0, self.op)
+    self.write_op(stream, self.high, self.op)
+    if self.high == 1:
+      self.write_ushort(stream, self.size)
+      self.write_uint(stream, self.first_key)
+      for x in range(self.size):
+        self.write_uint(stream, self.targets[x])
+    if self.high == 2:
+      self.write_op(stream, self.size)
+      for x in range(self.size):
+        self.write_uint(stream, self.keys[x])
+      for x in range(self.size):
+        self.write_uint(stream, self.targets[x])
+    if self.high == 3:
+      self.write_ushort(stream, self.element_width)
+      self.write_uint(stream, self.size)
+      stream.write_byte_array(self.data)
     return len(self)
     
   def as_string(self):
@@ -158,11 +178,53 @@ class Instruction10x(Instruction):
   def from_string(self):
     pass
   def from_byte(self, stream):
-    self.op = stream.read() & 0xff
-    
-  def __len__(self):
-    return 2
+    self.high = stream.read()
+    self.op = self.high & 0xff
+    self.high = self.high >> 8 & 0xff
+    if self.high:
+      print('ident is {}'.format(self.high))
 
+    if self.high == 1: # packed-switch-payload
+      self.size = stream.read()
+      self.first_key = stream.read_int()
+      self.targets = []
+      print('size : {}'.format(self.size))
+      for x in range(self.size):
+        self.targets.append(stream.read_int())
+
+    if self.high == 2: # sparse-switch-payload
+      self.size = stream.read()
+      self.keys = []
+      self.targets = []
+      for x in range(self.size):
+        self.keys.append(stream.read_int())
+      for x in range(self.size):
+        self.targets.append(stream.read_int())
+    if self.high == 3: # fill-array-data-payload
+      self.element_width = stream.read()
+      self.size = stream.read_int()
+      self.data = bytearray()
+      if (self.size * self.element_width) % 2 == 1:
+        raise Exception('element_width is not aligned')
+      read_size = 0
+      while read_size < self.size * self.element_width:
+        print('read-size : {} size : {} element_width : {}'.format(
+          read_size, self.size, self.element_width
+        ))
+        self.data += struct.pack(USHORT_FMT, stream.read())
+        read_size += 2
+      assert(len(self.data) == self.size * self.element_width)
+
+      
+  def __len__(self):
+    if self.high == 0:
+      return 2
+    if self.high == 1:
+      return int((self.size * 2 + 6) * 2)
+    if self.high == 2:
+      return int(((self.size * 4) + 4) * 2)
+    if self.high == 3:
+      return int(((self.size * self.element_width + 1) / 2 + 4))
 # B|A|op 	12x 	op vA, vB
 class Instruction12x(Instruction):
   def as_byte_stream(self):
