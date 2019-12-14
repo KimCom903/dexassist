@@ -487,7 +487,7 @@ class DexWriter(object):
     self.write_debug_and_code_items(offset_writer, TempOutputStream(bytearray()))
     self.write_classes(index_writer, offset_writer)
     self.write_map_item(offset_writer)
-    self.write_header(header_writer, data_section_offset, offset_writer.get_position())
+    self.write_header(header_writer, data_section_offset, len(buf))
     #header_writer.close()
     #index_writer.close()
     #offset_writer.close()
@@ -1083,18 +1083,20 @@ class DexWriter(object):
     dex_version = 0x35
     return bytearray([0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, dex_version, 0x00])
   def write_header(self, writer, data_offset, file_size):
+    print("file size is {}".format(file_size))
     writer.write_byte_array(self.get_magic("opcodes.api"))
+
     writer.write_int(0) # checksum
     writer.write_arrays(bytearray(20))
 
-    writer.write_int(file_size)
-    writer.write_int(SIZE_HEADER_ITEM)
-    writer.write_int(LITTLE_ENDIAN_TAG)
+    writer.write_uint(file_size)
+    writer.write_uint(SIZE_HEADER_ITEM)
+    writer.write_uint(LITTLE_ENDIAN_TAG)
 
-    writer.write_int(0) # link
-    writer.write_int(0) # link
+    writer.write_uint(0) # link
+    writer.write_uint(0) # link
 
-    writer.write_int(self.map_section_offset)
+    writer.write_uint(self.map_section_offset)
 
 
     self.write_section_info(writer, self.get_section(SECTION_STRING).size(), self.string_index_section_offset)
@@ -1104,8 +1106,8 @@ class DexWriter(object):
     self.write_section_info(writer, self.get_section(SECTION_METHOD).size(), self.method_section_offset)
     self.write_section_info(writer, self.get_section(SECTION_CLASS).size(), self.class_index_section_offset)
 
-    writer.write_int(file_size - data_offset)
-    writer.write_int(data_offset)
+    writer.write_uint(file_size - data_offset)
+    writer.write_uint(data_offset)
 
   def write_section_info(self, writer, num_items, offset):
     writer.write_int(num_items)
@@ -1113,15 +1115,23 @@ class DexWriter(object):
       offset = 0
     writer.write_int(offset)
 
-  def update_signature(self, buf):
-    sha = hashlib.sha1()
-    sha.update(buf[32:])
-    sig = sha.hexdigest()
+  def update_check_sum(self, buf):
+    from dexassist.writer.dex import stream
+    checksum = zlib.adler32(buf[12:]) & 0xffffffff
     
+    buf[8:12] = struct.pack(stream.UINT_FMT, checksum)
+
     
 
-  def update_check_sum(self, buf):
-    checksum = zlib.adler32(buf[12:])
+  def update_signature(self, buf):
+    from dexassist.writer.dex import stream
+    sha = hashlib.sha1()
+    #buf[file_size_offset:file_size_offset + 4] = struct.pack(stream.UINT_FMT, len(buf))
+    sha.update(buf[32:])
+    sig = sha.digest()
+
+    buf[12:32] = sig
+    
     
 
   def should_create_empty_annotation_set(self):
