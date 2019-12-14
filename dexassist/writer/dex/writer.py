@@ -16,7 +16,7 @@ import hashlib
 import zlib
 
 NO_INDEX = -1
-NO_OFFSET = -1
+NO_OFFSET = 0
 
 INSTRUCT_TYPE_METHOD = 2
 
@@ -581,17 +581,13 @@ class DexWriter(object):
         if code_item_offset != -1:
           method.code_item_offset = code_item_offset + self.code_section_offset
         else:
-          print('{}.{} code_Offset is {}'.format(method.clazz.type, method.name, code_item_offset))
           method.code_item_offset = 0
           #code_offsets.append(CodeItemOffset(method, code_item_offset))
     code_writer.write_to(offset_writer)
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
-    if 'BuildConfig' in method.clazz.type: print('{} {}'.format(method.name, instructions))
     if instructions is None and debug_item_offset == 0: return -1
     if len(instructions) == 0 and debug_item_offset == 0: return -1
-    
-    if 'BuildConfig' in method.clazz.type: print('buildconfig will be writed')
 
     #print('write code item for method {} {}'.format(method.clazz.type, method.name))
     self.num_code_item_items += 1
