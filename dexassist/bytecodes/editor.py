@@ -1,4 +1,5 @@
-
+import dexassist.bytecodes.base as base
+from dexassist.dex import dex
 
 
 """
@@ -38,7 +39,15 @@ class Editor(object):
     self.__unique_key = 0
     for x in self.opcodes:
       x.unique_key = self.unique_key
-
+  
+  def remove(self, opcode):
+    index = self.opcode_list.index(opcode)
+    self.opcode_list.remove(opcode)
+    nop = base.Instruction10x(dex.DexManager())
+    nop.op = 0
+    nop.high = 0
+    for _ in range(len(opcode)//2):
+      self.opcode_list.insert(index, nop)
 
   def commit(self):
     """

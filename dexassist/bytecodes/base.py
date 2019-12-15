@@ -208,9 +208,6 @@ class Instruction10x(Instruction):
         raise Exception('element_width is not aligned')
       read_size = 0
       while read_size < self.size * self.element_width:
-        print('read-size : {} size : {} element_width : {}'.format(
-          read_size, self.size, self.element_width
-        ))
         self.data += struct.pack(USHORT_FMT, stream.read())
         read_size += 2
       assert(len(self.data) == self.size * self.element_width)

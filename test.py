@@ -38,17 +38,11 @@ def duplicate_dex(dex_path):
         for opcode in m.editor.opcode_list:
           if opcode.op == 0x70 or opcode.op == 0x76:
             if opcode.BBBB.name.find('setup') >= 0:
-              m.editor.opcode_list.remove(opcode)
-              nop = base.Instruction10x(manager)
-              nop.op = 0
-              nop.high = 0
-              for _ in range(3):
-                m.editor.opcode_list.append(nop)
+              m.editor.remove(opcode)        
     for m in adsmethod:
       clazz.methods.remove(m)
   for clazz in adsclazz:
     mdex.classes.remove(clazz)
-  
   buf = bytearray()
   stream = OutputStream(buf,0)
   #mdex.write(stream)
