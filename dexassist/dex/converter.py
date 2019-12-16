@@ -62,7 +62,9 @@ class DexConverter(object):
         print("source file idx {} is not in string_list".format(cdi.source_file_idx))
 
     if cdi.static_values:
-      item.static_initializers = [x.value for x in cdi.static_values.value.values]
+      item.static_initializers = []
+      for val in cdi.static_values.value.values:
+        item.static_initializers.append(normalize.DexValue(val.value, val.type))
     field_annotation_table = {}
     method_annotation_table = {}
     param_annotation_table = {}
