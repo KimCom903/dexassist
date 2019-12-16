@@ -1,5 +1,6 @@
 
-
+import dexassist.bytecodes.base as base
+import dexassist.dex.dex as dex
 
 """
 this class can modify dex opcodes.
@@ -60,7 +61,15 @@ class Editor(object):
       ```
     """
     self.commit()
-
+    
+  def remove(self, opcode):
+    index = self.opcode_list.index(opcode)
+    self.opcode_list.remove(opcode)
+    nop = base.Instruction10x(dex.DexManager())
+    nop.op = 0
+    nop.high = 0
+    for _ in range(len(opcode)//2):
+      self.opcode_list.insert(index, nop)
 
   @property
   def opcodes(self):
