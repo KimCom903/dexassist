@@ -111,15 +111,21 @@ def get_method_register_count(method):
 def get_parameter_register_count(parameters, is_static):
 
   reg_count = 0
+  #print('calc param register count for {}'.format(parameters))
   for param_type in parameters:
     reg_count += 1
     if param_type[0] in ['J', 'D']:
       reg_count += 1
 
   if not is_static: reg_count += 1
+  #print('return reg_count is {}, is_static is {}'.format(reg_count, is_static))
   return reg_count
 
 class SectionManager(object):
+  @property
+  def proto_section(self):
+    return self.get_section(SECTION_PROTO)
+
   @property
   def type_section(self):
     return self.get_section(SECTION_TYPE)
@@ -580,25 +586,32 @@ class DexWriter(object):
         code_item_offset = self.write_code_item(code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset)
         if code_item_offset != -1:
           method.code_item_offset = code_item_offset + self.code_section_offset
+          #print('code item offset is 0x{:08x}'.format(code_item_offset + self.code_section_offset))
         else:
           method.code_item_offset = 0
           #code_offsets.append(CodeItemOffset(method, code_item_offset))
+    offset_writer.align()
     code_writer.write_to(offset_writer)
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
     if instructions is None and debug_item_offset == 0: return -1
     if len(instructions) == 0 and debug_item_offset == 0: return -1
+    logging = False
+    if 'com/google/ads/util/b' in method.clazz.type:
+      logging = True
 
     #print('write code item for method {} {}'.format(method.clazz.type, method.name))
     self.num_code_item_items += 1
     code_writer.align()
     code_item_offset = code_writer.get_position()
-    code_writer.write_ushort(method.register_count) # register
     is_static = method.is_static()
-    code_writer.write_ushort(
-      get_parameter_register_count(method.proto.parameters, is_static)
-    ) # ins
+    method.register_count = max(method.register_count, get_parameter_register_count(method.proto.parameters, is_static))
     if instructions is None:
+      code_writer.write_ushort(method.register_count) # register
+      code_writer.write_ushort(
+      get_parameter_register_count(method.proto.parameters, is_static)
+      ) # ins
+
       code_writer.write_ushort(0) # outs
       code_writer.write_ushort(0) # tries
       code_writer.write_uint(debug_item_offset) # debug_info_off
@@ -615,13 +628,32 @@ class DexWriter(object):
         method_ref = ins.ref
         opcode = ins.get_op()
         if InstructionUtil.is_invoke_polymorphic(opcode):
+          if logging:
+            print("instruction was(polymorphic) {}".format(opcode))
+            print("register count from ins is {}".format(ins.get_register_count()))
           param_count = ins.get_register_count()
         else:
-          param_count = get_method_register_count(method_ref)
+          if logging:
+            print("instruction was {}".format(opcode))
+            #paramCount = MethodUtil.getParameterRegisterCount(methodRef, InstructionUtil.isInvokeStatic(opcode));
+          param_count = get_parameter_register_count(method_ref.parameters, InstructionUtil.is_invoke_static(opcode))
+          if logging:
+            print("register count from ins.ref is {}".format(param_count))
+
           #param_count = self.get_param_register_count(method_ref, InstructionUtil.is_invoke_static(opcode))
 
-        if param_count > out_param_count: out_param_count = param_count
-      
+        if param_count > out_param_count:
+          if logging:            
+            print("out_param_count update to {} -> {}".format(out_param_count, param_count))
+            print("method.register_count is {}".format(method.register_count))
+          out_param_count = param_count
+    if out_param_count > 5:
+      method.register_count = max(out_param_count, method.register_count)
+    code_writer.write_ushort(method.register_count) # register
+    code_writer.write_ushort(
+      get_parameter_register_count(method.proto.parameters, is_static)
+    ) # ins
+
     code_writer.write_ushort(out_param_count)
     code_writer.write_ushort(len(try_blocks))
     code_writer.write_uint(debug_item_offset)
@@ -659,10 +691,11 @@ class DexWriter(object):
         offset = handler_map[key]
         if offset != 0:
           code_writer.write_ushort(offset)
-          raise Exception('offset != 0')
+          continue
+          #raise Exception('offset != 0')
         offset = ehbuf.get_position()
-        handler_map[key] = offset
         code_writer.write_ushort(offset)
+        handler_map[key] = offset
 
         eh_size = len(try_block.get_exception_handlers())
         eh_last = try_block.get_exception_handlers()[-1]
@@ -756,7 +789,7 @@ class DexWriter(object):
     for item in type_list_section.get_items():
       prev_offset = writer.position
       align_offset = writer.align()
-      print("offset aligned for {} -> {}({})".format(prev_offset, writer.position, align_offset))
+      #print("offset aligned for {} -> {}({})".format(prev_offset, writer.position, align_offset))
       type_list_section.set_offset_by_item(item, writer.position)
       types = item.get_types()
       writer.write_uint(len(types))

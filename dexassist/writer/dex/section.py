@@ -97,6 +97,27 @@ class TypeSection(Section):
     self.offset = 0
     self.frozen = False
     self.type_reverse_map = {}
+
+  def freeze(self):
+    self.frozen = True
+    self.sort()
+
+  def sort(self):
+    d = []
+    for index in self.type_reverse_map:
+      f = self.type_reverse_map[index]
+      d.append(f)
+    d.sort(key = lambda x: self.section_.string_section.get_item_index(x))
+    self.type_map = OrderedDict()
+    self.type_reverse_map = {}
+
+    self.index = 0
+    for i in d:
+      self.type_map[i] = self.index
+      self.type_reverse_map[self.index] = i
+      self.index += 1
+
+
   def add_item(self, dex_type):
     if self.frozen:
       raise Exception('section is frozen')
@@ -122,8 +143,33 @@ class ProtoSection(Section):
     self.section_ = section_manager
     self.frozen = False
     self.reverse_proto_map = {}
+
+
+  def freeze(self):
+    self.frozen = True
+    self.sort()
+
+  def sort(self):
+    d = []
+    for index in self.reverse_proto_map:
+      f = self.reverse_proto_map[index]
+      f.index = index
+      d.append(f)
+    d.sort(key = lambda x : x.return_type + ','.join([str(p) for p in x.parameters]))
+
+    self.proto_map = OrderedDict()
+    self.reverse_proto_map = {}
+
+    self.index = 0
+    for i in d:
+      self.proto_map[i] = self.index
+      self.reverse_proto_map[self.index] = i
+      self.index += 1
+
+
   def add_interfaces(self, interfaces):
     self.add_item(DexProto(''.join(interfaces), None, None))
+  
   def add_item(self, dex_proto):
     if self.frozen:
       raise Exception('section is frozen')
@@ -154,11 +200,6 @@ class FieldSection(Section):
   def freeze(self):
     self.frozen = True
     self.sort()
-  def get_clazz_type(self, f):
-    try:
-      return f.clazz.type
-    except:
-      return f.clazz
 
   def sort(self):
     d = []
@@ -177,6 +218,13 @@ class FieldSection(Section):
       self.field_map[i] = self.index
       self.reverse_field_map[self.index] = i
       self.index += 1
+
+  def get_clazz_type(self, f):
+    try:
+      return f.clazz.type
+    except:
+      return f.clazz
+
 
 
   def add_item(self, dex_field):
@@ -202,6 +250,25 @@ class FieldSection(Section):
   def get_item_index(self, value):
     return self.field_map[value]
 
+
+def cmp_to_key(mycmp):
+    'Convert a cmp= function into a key= function'
+    class K:
+        def __init__(self, obj, *args):
+            self.obj = obj
+        def __lt__(self, other):
+            return mycmp(self.obj, other.obj) < 0
+        def __gt__(self, other):
+            return mycmp(self.obj, other.obj) > 0
+        def __eq__(self, other):
+            return mycmp(self.obj, other.obj) == 0
+        def __le__(self, other):
+            return mycmp(self.obj, other.obj) <= 0
+        def __ge__(self, other):
+            return mycmp(self.obj, other.obj) >= 0
+        def __ne__(self, other):
+            return mycmp(self.obj, other.obj) != 0
+    return K
 class MethodSection(Section):
   def __init__(self, section_manager):
     self.method_map = OrderedDict()
@@ -209,13 +276,28 @@ class MethodSection(Section):
     self.section_ = section_manager
     self.reverse_method_map = {}
     self.frozen = False
+  def sort_compare(self, x, y):
+    type_section = self.section_.type_section
+    x_clazz_index = type_section.get_item_index(x.clazz.type)
+    y_clazz_index = type_section.get_item_index(y.clazz.type)
+    if x_clazz_index != y_clazz_index:
+      return x_clazz_index - y_clazz_index
+    string_section = self.section_.string_section
+    x_name_index = string_section.get_item_index(x.name)
+    y_name_index = string_section.get_item_index(y.name)
+    if x_name_index != y_name_index:
+      return x_name_index - y_name_index
+    proto_section = self.section_.proto_section
+
+    return proto_section.get_item_index(x.proto) - proto_section.get_item_index(y.proto)
+    #x.clazz.type + x.name + str(x.proto)
   def sort(self):
     d = []
     for index in self.reverse_method_map:
       m = self.reverse_method_map[index]
       m.index = index
       d.append(m)
-    d.sort(key = lambda x : x.clazz.type + x.name + str(x.proto))
+    d = sorted(d, key = cmp_to_key(self.sort_compare))
     self.method_map = OrderedDict()
     self.reverse_method_map = {}
     self.index = 0
