@@ -260,11 +260,11 @@ class DexMethod(object):
     if self.is_private(): return True
     if self.is_constructor(): return True
   def is_private(self):
-    return self.access_flags & ACC_PRIVATE
+    return self.access_flags & ACC_PRIVATE != 0
   def is_static(self):
-    return self.access_flags & ACC_STATIC
+    return self.access_flags & ACC_STATIC != 0
   def is_constructor(self):
-    return self.access_flags & ACC_CONSTRUCTOR
+    return self.access_flags & ACC_CONSTRUCTOR != 0
 
   def parse_type(self, value):
     pass

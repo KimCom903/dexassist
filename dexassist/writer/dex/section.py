@@ -250,6 +250,25 @@ class FieldSection(Section):
   def get_item_index(self, value):
     return self.field_map[value]
 
+
+def cmp_to_key(mycmp):
+    'Convert a cmp= function into a key= function'
+    class K:
+        def __init__(self, obj, *args):
+            self.obj = obj
+        def __lt__(self, other):
+            return mycmp(self.obj, other.obj) < 0
+        def __gt__(self, other):
+            return mycmp(self.obj, other.obj) > 0
+        def __eq__(self, other):
+            return mycmp(self.obj, other.obj) == 0
+        def __le__(self, other):
+            return mycmp(self.obj, other.obj) <= 0
+        def __ge__(self, other):
+            return mycmp(self.obj, other.obj) >= 0
+        def __ne__(self, other):
+            return mycmp(self.obj, other.obj) != 0
+    return K
 class MethodSection(Section):
   def __init__(self, section_manager):
     self.method_map = OrderedDict()
@@ -257,13 +276,28 @@ class MethodSection(Section):
     self.section_ = section_manager
     self.reverse_method_map = {}
     self.frozen = False
+  def sort_compare(self, x, y):
+    type_section = self.section_.type_section
+    x_clazz_index = type_section.get_item_index(x.clazz.type)
+    y_clazz_index = type_section.get_item_index(y.clazz.type)
+    if x_clazz_index != y_clazz_index:
+      return x_clazz_index - y_clazz_index
+    string_section = self.section_.string_section
+    x_name_index = string_section.get_item_index(x.name)
+    y_name_index = string_section.get_item_index(y.name)
+    if x_name_index != y_name_index:
+      return x_name_index - y_name_index
+    proto_section = self.section_.proto_section
+
+    return proto_section.get_item_index(x.proto) - proto_section.get_item_index(y.proto)
+    #x.clazz.type + x.name + str(x.proto)
   def sort(self):
     d = []
     for index in self.reverse_method_map:
       m = self.reverse_method_map[index]
       m.index = index
       d.append(m)
-    d.sort(key = lambda x : x.clazz.type + x.name + str(x.proto))
+    d = sorted(d, key = cmp_to_key(self.sort_compare))
     self.method_map = OrderedDict()
     self.reverse_method_map = {}
     self.index = 0
