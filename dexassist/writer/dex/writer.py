@@ -438,6 +438,7 @@ class DexWriter(object):
     for dex_pool_index in self.dex_pool_dict:
       stream.set_output_index(index)
       self.build_dex(self.dex_pool_dict[dex_pool_index], stream)
+      #stream.save()
 
   def build_dex(self, dex_pool, stream):
     manager = self.manager
@@ -529,9 +530,6 @@ class DexWriter(object):
 
     self.update_signature(buf)
     self.update_check_sum(buf)
-
-    with open('test.dex', 'wb') as f:
-      f.write(buf)
 
 
 
