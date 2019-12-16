@@ -163,10 +163,10 @@ class OutputStream(BaseWriteStream):
     return self.position
 
   def align(self):
-    zeros = (-self.get_position()) & 3
+    zeros = (-self.position) & 3
     if zeros > 0:
       self.write_byte_array(bytearray(zeros))
-    self.write_byte_array(bytearray(4))
+    return zeros
 
 
 class TempOutputStream(BaseWriteStream):

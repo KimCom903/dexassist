@@ -90,6 +90,15 @@ class DexClassItem(object):
     return str(self.type) < str(other.type)
   def __gt__(self, other):
     return str(self.type) > str(other.type)  
+  
+  def get_sorted_methods(self, section):
+    l = self.methods
+    l.sort(key = lambda x : section.get_item_index(x))
+    return l
+  def get_sorted_fields(self, section):
+    l = self.fields
+    l.sort(key = lambda x : section.get_item_index(x))
+    return l
   def get_sorted_static_fields(self, section):
     l =  list(filter(lambda x : x.is_static(), self.fields))
     l.sort(key = lambda x : section.get_item_index(x))
