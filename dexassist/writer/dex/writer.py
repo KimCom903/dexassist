@@ -580,9 +580,11 @@ class DexWriter(object):
         code_item_offset = self.write_code_item(code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset)
         if code_item_offset != -1:
           method.code_item_offset = code_item_offset + self.code_section_offset
+          print('code item offset is 0x{:08x}'.format(code_item_offset + self.code_section_offset))
         else:
           method.code_item_offset = 0
           #code_offsets.append(CodeItemOffset(method, code_item_offset))
+    offset_writer.align()
     code_writer.write_to(offset_writer)
 
   def write_code_item(self, code_writer, ehbuf, method, try_blocks, instructions, debug_item_offset):
@@ -593,12 +595,14 @@ class DexWriter(object):
     self.num_code_item_items += 1
     code_writer.align()
     code_item_offset = code_writer.get_position()
-    code_writer.write_ushort(method.register_count) # register
     is_static = method.is_static()
-    code_writer.write_ushort(
-      get_parameter_register_count(method.proto.parameters, is_static)
-    ) # ins
+    method.register_count = max(method.register_count, get_parameter_register_count(method.proto.parameters, is_static))
     if instructions is None:
+      code_writer.write_ushort(method.register_count) # register
+      code_writer.write_ushort(
+      get_parameter_register_count(method.proto.parameters, is_static)
+      ) # ins
+
       code_writer.write_ushort(0) # outs
       code_writer.write_ushort(0) # tries
       code_writer.write_uint(debug_item_offset) # debug_info_off
@@ -622,6 +626,12 @@ class DexWriter(object):
 
         if param_count > out_param_count: out_param_count = param_count
       
+    method.register_count = max(out_param_count, method.register_count)
+    code_writer.write_ushort(method.register_count) # register
+    code_writer.write_ushort(
+      get_parameter_register_count(method.proto.parameters, is_static)
+    ) # ins
+
     code_writer.write_ushort(out_param_count)
     code_writer.write_ushort(len(try_blocks))
     code_writer.write_uint(debug_item_offset)
@@ -659,10 +669,11 @@ class DexWriter(object):
         offset = handler_map[key]
         if offset != 0:
           code_writer.write_ushort(offset)
-          raise Exception('offset != 0')
+          continue
+          #raise Exception('offset != 0')
         offset = ehbuf.get_position()
-        handler_map[key] = offset
         code_writer.write_ushort(offset)
+        handler_map[key] = offset
 
         eh_size = len(try_block.get_exception_handlers())
         eh_last = try_block.get_exception_handlers()[-1]
@@ -756,7 +767,7 @@ class DexWriter(object):
     for item in type_list_section.get_items():
       prev_offset = writer.position
       align_offset = writer.align()
-      print("offset aligned for {} -> {}({})".format(prev_offset, writer.position, align_offset))
+      #print("offset aligned for {} -> {}({})".format(prev_offset, writer.position, align_offset))
       type_list_section.set_offset_by_item(item, writer.position)
       types = item.get_types()
       writer.write_uint(len(types))
