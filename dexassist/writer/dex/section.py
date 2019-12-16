@@ -150,6 +150,35 @@ class FieldSection(Section):
     self.section_ = section_manager
     self.frozen = False
     self.reverse_field_map = {}
+
+  def freeze(self):
+    self.frozen = True
+    self.sort()
+  def get_clazz_type(self, f):
+    try:
+      return f.clazz.type
+    except:
+      return f.clazz
+
+  def sort(self):
+    d = []
+    for index in self.reverse_field_map:
+      f = self.reverse_field_map[index]
+      clazz_type = self.get_clazz_type(f)
+      f.index = index
+      d.append(f)
+    d.sort(key = lambda x : self.get_clazz_type(x) + x.name)
+
+    self.field_map = OrderedDict()
+    self.reverse_field_map = {}
+
+    self.index = 0
+    for i in d:
+      self.field_map[i] = self.index
+      self.reverse_field_map[self.index] = i
+      self.index += 1
+
+
   def add_item(self, dex_field):
     if self.frozen:
       raise Exception('section is frozen')
@@ -180,6 +209,25 @@ class MethodSection(Section):
     self.section_ = section_manager
     self.reverse_method_map = {}
     self.frozen = False
+  def sort(self):
+    d = []
+    for index in self.reverse_method_map:
+      m = self.reverse_method_map[index]
+      m.index = index
+      d.append(m)
+    d.sort(key = lambda x : x.clazz.type + x.name + str(x.proto))
+    self.method_map = OrderedDict()
+    self.reverse_method_map = {}
+    self.index = 0
+    for i in d:
+      self.method_map[i] = self.index
+      self.reverse_method_map[self.index] = i
+      self.index += 1
+
+  def freeze(self):
+    self.frozen = True
+    self.sort()
+
   def add_item(self, dex_method):
     if self.frozen:
       raise Exception('section is frozen')

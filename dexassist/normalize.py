@@ -475,7 +475,8 @@ class DexValue(object):
         return VALUE_TYPE_LONG
     if isinstance(self.value, str):
       if len(self.value) == 1:
-        return VALUE_TYPE_CHAR
+        return VALUE_TYPE_STRING
+        #return VALUE_TYPE_CHAR
       return VALUE_TYPE_STRING
     if isinstance(self.value, float):
       return VALUE_TYPE_DOUBLE
