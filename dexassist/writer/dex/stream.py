@@ -28,6 +28,7 @@ class BaseWriteStream(object):
     self.position = base_offset
     self.buf = buf
 
+
   def at(self, offset):
     self.position = offset
   def count_bytes(self, value, is_short_length):

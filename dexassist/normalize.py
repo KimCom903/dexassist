@@ -64,6 +64,10 @@ class Dex(object):
     self.classes = []
     self.manager = manager
 
+  def save_as(self, write_class, stream):
+    p = write_class(self)
+    p.write(stream)
+
   def add_class(self, clazz):
     self.classes.append(clazz)
   def get_class(self, clazz_type):

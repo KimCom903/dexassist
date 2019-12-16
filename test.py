@@ -15,45 +15,20 @@ def print_dex(dex_path):
   for clazz in mdex.classes:
     print(clazz.name)
 
-adsclazz = []
-
-def duplicate_dex(dex_path):
-  with open(dex_path, 'rb') as f:
-    x = f.read()
-  manager = dex.DexManager()
-  stream = dex.StreamReader(x, manager)
-  header = dex.HeaderItem(manager, stream, 0)
-  mdex = converter.DexConverter().get_dex(header, manager)
+def remove_ads(dex_path):
+  mdex = dex.from_file(dex_path, converter.DexConverter())
   for clazz in mdex.classes:
-    #if clazz.name.find("google") >= 0:
-      #adsclazz.append(clazz)
-      #continue
-    adsmethod = []
     for m in clazz.methods:
-      if m.name == "setupAds":
-        print(m.name)
-        adsmethod.append(m)
-        continue
       if m.editor:
         for opcode in m.editor.opcode_list:
           if opcode.op == 0x70 or opcode.op == 0x76:
-            if opcode.BBBB.name.find('setup') >= 0:
-              m.editor.opcode_list.remove(opcode)
-              nop = base.Instruction10x(manager)
-              nop.op = 0
-              nop.high = 0
-              for _ in range(3):
-                m.editor.opcode_list.append(nop)
-    for m in adsmethod:
-      clazz.methods.remove(m)
-  #for clazz in adsclazz:
-  #  mdex.classes.remove(clazz)
-  
+            if 'setupAds' in opcode.ref.name: m.editor.remove(opcode)
   buf = bytearray()
   stream = OutputStream(buf,0)
-  #mdex.write(stream)
-  p = DexWriter(mdex)
-  p.write(stream)
+  mdex.save_as(DexWriter, stream)
+
+  with open('classes.dex', 'wb') as f:
+    f.write(stream.buf)
 
 
 
@@ -75,18 +50,6 @@ def smali(out_path):
 def remake_apk(apk_path, out_apk_path):
   with zipfile.ZipFile(apk_path, 'r') as f:
     x = f.read('classes.dex')
-  
-  manager = dex.DexManager()
-  stream = dex.StreamReader(x, manager)
-  header = dex.HeaderItem(manager, stream, 0)
-  mdex = converter.DexConverter().get_dex(header, manager)
-  buf = bytearray()
-  stream = OutputStream(buf,0)
-  #mdex.write(stream)
-  p = DexWriter(mdex)
-  p.write(stream)
-  baksmali('test.dex')
-  smali('out')
   with open('test.dex', 'rb') as f:
     buf = f.read()
   remake(apk_path, out_apk_path)
@@ -100,7 +63,7 @@ def remake_apk(apk_path, out_apk_path):
 def main():
   #print_dex('test_binary/classes_mid.dex')
   #print_dex('test_binary/more_large.dex')
-  duplicate_dex('test_binary/classes_mid.dex')
+  remove_ads('test_binary/classes_mid.dex')
   #duplicate_dex('test_binary/classes.dex')
   #duplicate_dex('test_binary/large.dex')
   #remake_apk('sample_apk/sample1.apk', 'out.apk')

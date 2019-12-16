@@ -1,4 +1,5 @@
-
+import dexassist.bytecodes.base as base
+import dexassist.dex.dex as dex
 
 
 """
@@ -21,6 +22,17 @@ class Editor(object):
       if x.name == name: return x
     return None
 
+  def remove(self, opcode):
+    index = self.opcode_list.index(opcode)
+    if index != -1:
+      self.opcode_list.remove(opcode)
+      nop = base.Instruction10x(dex.DexManager())
+      nop.op = 0
+      nop.high = 0
+      for i in range(opcode.get_code_unit_count()):
+        self.opcode_list.insert(index + i, nop)
+
+      
   @property
   def unique_key(self):
     self.__unique_key += 1

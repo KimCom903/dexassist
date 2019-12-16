@@ -1158,3 +1158,12 @@ class StringDataItem(DexItem):
     self.value = root_stream.read_string(index + self.read_size)
 
 
+def from_memory(buf, converter):
+  manager = DexManager()
+  stream = StreamReader(buf, manager)
+  header = HeaderItem(manager, stream, 0)
+  return converter.get_dex(header, manager)
+def from_file(path, converter):
+  with open(path, 'rb') as f:
+    x = f.read()
+    return from_memory(x, converter)
