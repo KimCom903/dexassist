@@ -23,8 +23,7 @@ def remove_ads(dex_path):
         for opcode in m.editor.opcode_list:
           if opcode.op == 0x70 or opcode.op == 0x76:
             if 'setupAds' in opcode.ref.name: m.editor.remove(opcode)
-  buf = bytearray()
-  stream = OutputStream(buf,0)
+  stream = OutputStream(bytearray(), 0)
   mdex.save_as(DexWriter, stream)
 
   with open('classes.dex', 'wb') as f:
