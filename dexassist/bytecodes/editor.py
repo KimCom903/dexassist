@@ -1,20 +1,17 @@
-
 import dexassist.bytecodes.base as base
 import dexassist.dex.dex as dex
 
+
 """
 this class can modify dex opcodes.
-
 ```
 editor = method.get_editor()
-
 for opcode in editor.opcodes:
   if opcode.op == CONST_STRING:
     opcode.string = opcode.string + ' update'
   if opcode.op == INVOKE_DYNAMIC:
     opcode.method = new_method
 ```
-
 """
 class Editor(object):
   def find_label(self, name):
@@ -22,6 +19,17 @@ class Editor(object):
       if x.name == name: return x
     return None
 
+  def remove(self, opcode):
+    index = self.opcode_list.index(opcode)
+    if index != -1:
+      self.opcode_list.remove(opcode)
+      nop = base.Instruction10x(dex.DexManager())
+      nop.op = 0
+      nop.high = 0
+      for i in range(opcode.get_code_unit_count()):
+        self.opcode_list.insert(index + i, nop)
+
+      
   @property
   def unique_key(self):
     self.__unique_key += 1
@@ -44,9 +52,7 @@ class Editor(object):
   def commit(self):
     """
       commit all changed.
-
       changes will not affected after commit() calls.
-
       call in dexwriter
     """
     pass
@@ -54,7 +60,6 @@ class Editor(object):
   def save(self):
     """
       alternative commit()
-
       ```
         def save(self):
           self.commit()
@@ -91,8 +96,6 @@ class Editor(object):
 
 """
 try-catch class.
-
-
 """
 class TryCatch(object):
   def __init__(self, editor, start, end, catch_handlers, catch_all_handlers):
@@ -127,11 +130,8 @@ class TryCatch(object):
 
 """
 virtual opcode class.
-
 make compatable with dex opcode <-> editor opcode.
-
 compat layer class of smali/dex opcode.
-
 this class will be assume same interface between dex/smali
 """
 class VopCode(object):
@@ -141,10 +141,7 @@ class VopCode(object):
 
 """
 target offset class
-
 if opcode has target branch offset, target branch offset will be replaced with label class.
-
-
 """
 class Label(object):
   def __init__(self, editor, op, name=None):
@@ -163,7 +160,6 @@ class Label(object):
 label = editor.get_label_by_name("test_label")
 opcode = editor.get_opcode_by_offset(68)
 if opcode 
-
 ```
 """
 
