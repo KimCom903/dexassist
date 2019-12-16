@@ -468,13 +468,13 @@ class EncodedValue(DexItem):
 
   def as_float(self, value):
     if self.type == ENCODED_VALUE_DOUBLE:
-      return struct.unpack('d', value)[0]
-    return struct.unpack('f', value[:4])[0]
+      return struct.unpack('<d', value)[0]
+    return struct.unpack('<f', value[:4])[0]
 
   def as_int(self, value):
     if self.type == ENCODED_VALUE_LONG:
-      return struct.unpack('Q', value)[0]
-    return struct.unpack('I', value[:4])[0]
+      return struct.unpack('<Q', value)[0]
+    return struct.unpack('<I', value[:4])[0]
 
 
   def __str__(self):

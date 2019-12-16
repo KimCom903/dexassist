@@ -636,8 +636,8 @@ class DexWriter(object):
       code_offset += len(ins)#.en(get_code_units()
 
     if len(try_blocks) > 0:
-      #code_writer.align() # padding
-      if code_unit_count % 2 == 1: code_writer.write_ushort(0x0000)
+      code_writer.align() # padding
+      #if code_unit_count % 2 == 1: code_writer.write_ushort(0x0000)
 
       handler_map = dict()
       for try_block in try_blocks:
@@ -649,7 +649,10 @@ class DexWriter(object):
       ehbuf.write_uleb(len(handler_map))
 
       for try_block in try_blocks:
-        code_writer.write_int(try_block.get_start_addr())
+        print("start addr is {}".format(try_block.get_start_addr()))
+        if try_block.get_start_addr() > code_unit_count:
+          raise Exception('start addr is large then code_unit_count({} > {})'.format(try_block.get_start_addr(), code_unit_count))
+        code_writer.write_uint(try_block.get_start_addr())
         code_writer.write_ushort(try_block.get_code_count())
 
         if len(try_block.get_exception_handlers()) == 0:
@@ -663,6 +666,7 @@ class DexWriter(object):
           raise Exception('offset != 0')
         offset = ehbuf.get_position()
         handler_map[key] = offset
+        print("{} offset is {}".format(key, offset))
         code_writer.write_ushort(offset)
 
         eh_size = len(try_block.get_exception_handlers())

@@ -181,14 +181,13 @@ class Instruction10x(Instruction):
     self.high = stream.read()
     self.op = self.high & 0xff
     self.high = self.high >> 8 & 0xff
-    if self.high:
-      print('ident is {}'.format(self.high))
+    #if self.high:
+    #  print('ident is {}'.format(self.high))
 
     if self.high == 1: # packed-switch-payload
       self.size = stream.read()
       self.first_key = stream.read_int()
       self.targets = []
-      print('size : {}'.format(self.size))
       for x in range(self.size):
         self.targets.append(stream.read_int())
 
@@ -208,9 +207,6 @@ class Instruction10x(Instruction):
         raise Exception('element_width is not aligned')
       read_size = 0
       while read_size < self.size * self.element_width:
-        print('read-size : {} size : {} element_width : {}'.format(
-          read_size, self.size, self.element_width
-        ))
         self.data += struct.pack(USHORT_FMT, stream.read())
         read_size += 2
       assert(len(self.data) == self.size * self.element_width)

@@ -25,9 +25,9 @@ def duplicate_dex(dex_path):
   header = dex.HeaderItem(manager, stream, 0)
   mdex = converter.DexConverter().get_dex(header, manager)
   for clazz in mdex.classes:
-    if clazz.name.find("google") >= 0:
-      adsclazz.append(clazz)
-      continue
+    #if clazz.name.find("google") >= 0:
+      #adsclazz.append(clazz)
+      #continue
     adsmethod = []
     for m in clazz.methods:
       if m.name == "setupAds":
@@ -46,8 +46,8 @@ def duplicate_dex(dex_path):
                 m.editor.opcode_list.append(nop)
     for m in adsmethod:
       clazz.methods.remove(m)
-  for clazz in adsclazz:
-    mdex.classes.remove(clazz)
+  #for clazz in adsclazz:
+  #  mdex.classes.remove(clazz)
   
   buf = bytearray()
   stream = OutputStream(buf,0)
