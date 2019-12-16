@@ -181,14 +181,13 @@ class Instruction10x(Instruction):
     self.high = stream.read()
     self.op = self.high & 0xff
     self.high = self.high >> 8 & 0xff
-    if self.high:
-      print('ident is {}'.format(self.high))
+    #if self.high:
+    #  print('ident is {}'.format(self.high))
 
     if self.high == 1: # packed-switch-payload
       self.size = stream.read()
       self.first_key = stream.read_int()
       self.targets = []
-      print('size : {}'.format(self.size))
       for x in range(self.size):
         self.targets.append(stream.read_int())
 

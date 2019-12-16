@@ -120,15 +120,20 @@ class BaseWriteStream(object):
     return size
 
   def write_sleb(self, value):
-    if value < 0:
-      self.write_ubyte(0x7f)
     size = 1
-    #print('start write uleb with value {}'.format(value))
-    while (value & 0xffffffff) > 0x7f:
-      self.write_ubyte((value & 0x7f) | 0x80)
-      size += 1
-      value = rshift(value, 7)
-    self.write_ubyte(value)
+    if value >= 0:
+      while value > 0x3f:
+        self.write_ubyte((value & 0x7f) | 0x80)
+        size += 1
+        value = rshift(value, 7)
+      self.write_ubyte(value & 0x7f)
+    else:
+      while value < -0x40:
+        print('there was negative value : {}'.format(value))
+        self.write_ubyte((value & 0x7f) | 0x80)
+        size += 1
+        value >>= 7
+      self.write_ubyte(value & 0x7f)
     return size
 
   def write_ulebp1(self, value):
@@ -169,6 +174,7 @@ class TempOutputStream(BaseWriteStream):
     self.buf = buf
     self.position = 0
   
+
   def write_to(self, stream):
     stream.write_arrays(self.buf)
     #stream.buf[stream.position : stream.position + self.position] = self.buf
@@ -187,7 +193,7 @@ class TempOutputStream(BaseWriteStream):
   def align(self):
     zeros = (-self.get_position()) & 3
     if zeros > 0:
-      self.write_ubyte(0)    
+      self.write_byte_array(bytearray(zeros))
 
 
 class BufferStream(BaseWriteStream):

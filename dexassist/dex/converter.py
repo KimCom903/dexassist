@@ -280,7 +280,6 @@ class CodeStream(object):
   def read_int(self):
     x = self.read()
     y = self.read()
-    print('read_int return is 0x{:04x}{:04x}'.format(y, x))
     return y << 16 | x
   def at(self, offset):
     self.index = offset
